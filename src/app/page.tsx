@@ -28,10 +28,10 @@ export default function Home() {
     setLoading(false);
   };
 
-  const handleSave = async (title: string, content: string) => {
+  const handleSave = async (title: string, content: string, attachment_url: string | null, attachment_name: string | null) => {
     const { data, error } = await supabase
       .from("prompts")
-      .insert([{ title, content }])
+      .insert([{ title, content, attachment_url, attachment_name }])
       .select();
 
     if (error) {
