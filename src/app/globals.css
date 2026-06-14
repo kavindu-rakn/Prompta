@@ -1,26 +1,119 @@
-@import "tailwindcss";
-
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg-color: #ffffff;
+  --text-color: #000000;
+  --border-color: #aaaaaa;
+  --btn-bg: #e1e1e1;
+  --btn-hover: #cce8ff;
+  --btn-border: #adadad;
+  --header-bg: #f0f0f0;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg-color: #1e1e1e;
+    --text-color: #d4d4d4;
+    --border-color: #444444;
+    --btn-bg: #333333;
+    --btn-hover: #094771;
+    --btn-border: #555555;
+    --header-bg: #2d2d2d;
   }
 }
 
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Consolas, "Courier New", monospace;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  line-height: 1.5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+nav {
+  background-color: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.5rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+nav h1 {
+  font-size: 1.2rem;
+  font-weight: normal;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+  width: 100%;
+}
+
+.prompt-card {
+  border: 1px solid var(--border-color);
+  margin-bottom: 2rem;
+  background-color: var(--bg-color);
+}
+
+.prompt-header {
+  border-bottom: 1px dashed var(--border-color);
+  padding: 0.5rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--header-bg);
+}
+
+.prompt-body {
+  padding: 1rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.prompt-actions {
+  border-top: 1px dashed var(--border-color);
+  padding: 0.5rem 1rem;
+  display: flex;
+  gap: 0.5rem;
+  background-color: var(--header-bg);
+}
+
+input, textarea, button {
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+button {
+  background-color: var(--btn-bg);
+  color: var(--text-color);
+  border: 1px solid var(--btn-border);
+  padding: 0.25rem 0.75rem;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: var(--btn-hover);
+}
+
+.input-field {
+  width: 100%;
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  resize: vertical;
+}
+
+.input-field:focus {
+  outline: 1px solid var(--text-color);
+  border-color: transparent;
 }
