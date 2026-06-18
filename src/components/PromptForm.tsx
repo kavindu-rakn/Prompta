@@ -75,7 +75,6 @@ export default function PromptForm({ onSave }: PromptFormProps) {
         rows={5}
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        maxLength={2000}
         disabled={uploading}
       ></textarea>
       
