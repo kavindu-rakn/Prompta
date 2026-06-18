@@ -37,14 +37,19 @@ export default function Home() {
     const { data: folderData } = await supabase.from("folders").select("*").order("created_at");
     if (folderData) setFolders(folderData);
     
-    // Fetch Prompts
-    const { data: promptData } = await supabase.from("prompts").select("*").order("created_at", { ascending: false });
+    // Fetch Prompts (Only owned by the user)
+    const { data: promptData } = await supabase
+      .from("prompts")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
     if (promptData) setPrompts(promptData);
     
-    // Fetch Inbox
+    // Fetch Inbox (Only received by the user)
     const { data: inboxData, error: inboxError } = await supabase
       .from("prompt_shares")
       .select(`id, sender_email, prompts (*)`)
+      .eq("receiver_email", user.email)
       .order("created_at", { ascending: false });
       
     if (inboxError) {
