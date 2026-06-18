@@ -202,3 +202,48 @@ hr {
   border-bottom: 4px solid var(--border-color);
   margin: 4rem 0;
 }
+
+/* 3-Column Dashboard Grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 200px 1fr 300px;
+  }
+}
+
+.column-header {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 0.5rem;
+  font-weight: 900;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.folder-item {
+  padding: 0.8rem;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.folder-item:hover {
+  border-color: var(--border-color);
+}
+
+.folder-item.active {
+  background-color: var(--text-color);
+  color: var(--bg-color);
+}
