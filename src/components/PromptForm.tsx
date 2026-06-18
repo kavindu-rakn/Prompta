@@ -4,12 +4,15 @@ import React, { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 interface PromptFormProps {
-  onSave: (title: string, content: string, attachmentUrl: string | null, attachmentName: string | null) => void;
+  folders: { id: string, name: string }[];
+  currentFolderId: string | null;
+  onSave: (title: string, content: string, attachmentUrl: string | null, attachmentName: string | null, folderId: string | null) => void;
 }
 
-export default function PromptForm({ onSave }: PromptFormProps) {
+export default function PromptForm({ folders, currentFolderId, onSave }: PromptFormProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [folderId, setFolderId] = useState<string>(currentFolderId || "");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -45,7 +48,7 @@ export default function PromptForm({ onSave }: PromptFormProps) {
       attachmentName = file.name;
     }
 
-    onSave(title, content, attachmentUrl, attachmentName);
+    onSave(title, content, attachmentUrl, attachmentName, folderId === "" ? null : folderId);
     
     setTitle("");
     setContent("");
@@ -69,6 +72,20 @@ export default function PromptForm({ onSave }: PromptFormProps) {
         maxLength={100}
         disabled={uploading}
       />
+      
+      <select 
+        className="input-field" 
+        value={folderId} 
+        onChange={(e) => setFolderId(e.target.value)}
+        disabled={uploading}
+        style={{ cursor: "pointer" }}
+      >
+        <option value="">[ NO FOLDER ]</option>
+        {folders.map(f => (
+          <option key={f.id} value={f.id}>{f.name.toUpperCase()}</option>
+        ))}
+      </select>
+
       <textarea
         className="input-field"
         placeholder="INPUT PROMPT DATA..."
@@ -87,7 +104,7 @@ export default function PromptForm({ onSave }: PromptFormProps) {
         />
       </div>
 
-      <button type="submit" disabled={uploading}>
+      <button type="submit" disabled={uploading} style={{ width: "100%" }}>
         {uploading ? "TRANSMITTING..." : "SAVE ENTRY"}
       </button>
     </form>
