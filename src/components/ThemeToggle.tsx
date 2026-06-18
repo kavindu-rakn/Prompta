@@ -26,8 +26,8 @@ export default function ThemeToggle() {
   };
 
   return (
-    <button onClick={toggleTheme} style={{ marginLeft: "1rem", fontSize: "0.8rem", padding: "0.1rem 0.5rem" }}>
-      {theme === "dark" ? "☀ Light" : "🌙 Dark"}
+    <button onClick={toggleTheme} style={{ marginLeft: "2rem" }}>
+      {theme === "dark" ? "[ LIGHT_MODE ]" : "[ DARK_MODE ]"}
     </button>
   );
 }

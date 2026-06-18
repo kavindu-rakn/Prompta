@@ -32,7 +32,7 @@ export default function PromptForm({ onSave }: PromptFormProps) {
 
       if (uploadError) {
         console.error("Upload error:", uploadError);
-        alert("Error uploading file!");
+        alert("ERROR UPLOADING FILE!");
         setUploading(false);
         return;
       }
@@ -57,13 +57,13 @@ export default function PromptForm({ onSave }: PromptFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="prompt-card" style={{ padding: "1rem" }}>
-      <h3>New Prompt</h3>
-      <br />
+    <form onSubmit={handleSubmit} className="prompt-card" style={{ padding: "2.5rem" }}>
+      <h3>[ INITIALIZE NEW ENTRY ]</h3>
+      
       <input
         type="text"
         className="input-field"
-        placeholder="Title..."
+        placeholder="ENTER TITLE..."
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         maxLength={100}
@@ -71,25 +71,24 @@ export default function PromptForm({ onSave }: PromptFormProps) {
       />
       <textarea
         className="input-field"
-        placeholder="Type your prompt here..."
-        rows={5}
+        placeholder="INPUT PROMPT DATA..."
+        rows={6}
         value={content}
         onChange={(e) => setContent(e.target.value)}
         disabled={uploading}
       ></textarea>
       
-      <div style={{ marginBottom: "1rem" }}>
+      <div style={{ marginBottom: "2rem" }}>
         <input 
           id="file-upload"
           type="file" 
           onChange={(e) => setFile(e.target.files?.[0] || null)}
           disabled={uploading}
-          style={{ fontFamily: 'inherit' }}
         />
       </div>
 
       <button type="submit" disabled={uploading}>
-        {uploading ? "Saving & Uploading..." : "Save"}
+        {uploading ? "TRANSMITTING..." : "SAVE ENTRY"}
       </button>
     </form>
   );

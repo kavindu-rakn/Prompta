@@ -19,7 +19,7 @@ interface PromptCardProps {
 export default function PromptCard({ prompt, onDelete }: PromptCardProps) {
   const handleCopy = async () => {
     await navigator.clipboard.writeText(prompt.content);
-    alert("Copied to clipboard!");
+    alert("COPIED TO CLIPBOARD");
   };
 
   const handleAIAction = async (url: string) => {
@@ -38,12 +38,12 @@ export default function PromptCard({ prompt, onDelete }: PromptCardProps) {
       <div className="prompt-body">{prompt.content}</div>
       
       {prompt.attachment_url && (
-        <div style={{ padding: "0 1rem 1rem 1rem", borderTop: "1px dashed var(--border-color)", paddingTop: "1rem" }}>
-          <p style={{ marginBottom: "0.5rem" }}>
-            <strong>Attachment:</strong> <a href={prompt.attachment_url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-color)" }}>{prompt.attachment_name || "Download File"}</a>
+        <div style={{ padding: "0 1.5rem 1.5rem 1.5rem", borderTop: "2px solid var(--border-color)", paddingTop: "1.5rem" }}>
+          <p style={{ marginBottom: "1rem", textTransform: "uppercase", letterSpacing: "1px" }}>
+            <strong>[ATTACHMENT]:</strong> <a href={prompt.attachment_url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-color)", textDecoration: "underline", textUnderlineOffset: "4px" }}>{prompt.attachment_name || "DOWNLOAD"}</a>
           </p>
           {isImage && (
-            <div style={{ marginTop: "0.5rem", maxWidth: "300px", border: "1px solid var(--border-color)", padding: "0.25rem" }}>
+            <div style={{ marginTop: "1rem", maxWidth: "400px", border: "2px solid var(--border-color)", padding: "0" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={prompt.attachment_url} alt="Attachment Preview" style={{ width: "100%", height: "auto", display: "block" }} />
             </div>
