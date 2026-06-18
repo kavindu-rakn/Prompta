@@ -1,6 +1,5 @@
-"use client";
-
 import React from "react";
+import { Copy, Bot, Sparkles, Cpu, Send, Trash2 } from "lucide-react";
 
 export type Prompt = {
   id: string;
@@ -35,12 +34,16 @@ export default function PromptCard({ prompt, onDelete, onSend, isInbox, senderEm
 
   return (
     <div className="prompt-card">
-      <div className="prompt-header" style={{ backgroundColor: isInbox ? "var(--text-color)" : "var(--subtle-gray)", color: isInbox ? "var(--bg-color)" : "inherit" }}>
+      <div className="prompt-header" style={{ backgroundColor: isInbox ? "var(--text-color)" : "var(--subtle-gray)", color: isInbox ? "var(--bg-color)" : "inherit", padding: "1rem 1.5rem" }}>
         <strong style={{ flex: 1 }}>{prompt.title}</strong>
         {isInbox && senderEmail && (
           <span style={{ fontSize: "0.8rem", opacity: 0.8, marginRight: "1rem" }}>FROM: {senderEmail}</span>
         )}
-        {!isInbox && onDelete && <button onClick={() => onDelete(prompt.id)} style={{ padding: "0.2rem 0.5rem", fontSize: "0.8rem" }}>DELETE</button>}
+        {!isInbox && onDelete && (
+          <button onClick={() => onDelete(prompt.id)} title="Delete" style={{ padding: "0.4rem", display: "flex", alignItems: "center" }}>
+            <Trash2 size={16} />
+          </button>
+        )}
       </div>
       <div className="prompt-body">{prompt.content}</div>
       
@@ -58,14 +61,18 @@ export default function PromptCard({ prompt, onDelete, onSend, isInbox, senderEm
         </div>
       )}
 
-      <div className="prompt-actions">
-        <button onClick={handleCopy}>Copy</button>
-        <button onClick={() => handleAIAction("https://chatgpt.com/")}>ChatGPT</button>
-        <button onClick={() => handleAIAction("https://gemini.google.com/")}>Gemini</button>
-        <button onClick={() => handleAIAction("https://chat.deepseek.com/")}>DeepSeek</button>
+      <div className="prompt-actions" style={{ gap: "0.5rem" }}>
+        <button onClick={handleCopy} title="Copy" style={{ padding: "0.6rem", display: "flex", alignItems: "center" }}><Copy size={18} /></button>
+        <button onClick={() => handleAIAction("https://chatgpt.com/")} title="ChatGPT" style={{ padding: "0.6rem", display: "flex", alignItems: "center" }}><img src="/ai-icons/chatgpt.svg" alt="ChatGPT" className="ai-icon" /></button>
+        <button onClick={() => handleAIAction("https://gemini.google.com/")} title="Gemini" style={{ padding: "0.6rem", display: "flex", alignItems: "center" }}><img src="/ai-icons/gemini.svg" alt="Gemini" className="ai-icon" /></button>
+        <button onClick={() => handleAIAction("https://chat.deepseek.com/")} title="DeepSeek" style={{ padding: "0.6rem", display: "flex", alignItems: "center" }}><img src="/ai-icons/deepseek.svg" alt="DeepSeek" className="ai-icon" /></button>
+        <button onClick={() => handleAIAction("https://claude.ai/")} title="Claude" style={{ padding: "0.6rem", display: "flex", alignItems: "center" }}><img src="/ai-icons/claude.svg" alt="Claude" className="ai-icon" /></button>
+        <button onClick={() => handleAIAction("https://grok.com/")} title="Grok" style={{ padding: "0.6rem", display: "flex", alignItems: "center" }}><img src="/ai-icons/grok.svg" alt="Grok" className="ai-icon" /></button>
         
         {!isInbox && onSend && (
-          <button onClick={() => onSend(prompt.id)} style={{ marginLeft: "auto", backgroundColor: "var(--text-color)", color: "var(--bg-color)" }}>SEND VIA COMM-LINK</button>
+          <button onClick={() => onSend(prompt.id)} title="Send Via Comm-Link" style={{ marginLeft: "auto", padding: "0.6rem", display: "flex", alignItems: "center", backgroundColor: "var(--text-color)", color: "var(--bg-color)" }}>
+            <Send size={18} />
+          </button>
         )}
       </div>
     </div>
