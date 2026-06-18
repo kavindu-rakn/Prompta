@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import ThemeToggle from "@/components/ThemeToggle";
+import { AuthProvider } from "@/components/AuthProvider";
+import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
   title: "Prompta - Prompt Bank",
-  description: "A simple, paper-like prompt bank for saving AI prompts.",
+  description: "A hyper-futuristic prompt bank.",
 };
 
 export default function RootLayout({
@@ -31,13 +32,10 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <nav>
-          <h1>Prompta</h1>
-          <div>
-            <ThemeToggle />
-          </div>
-        </nav>
-        {children}
+        <AuthProvider>
+          <Navbar />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
