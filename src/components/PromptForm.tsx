@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+import { Save } from "lucide-react";
+
 interface PromptFormProps {
   folders: { id: string, name: string }[];
   currentFolderId: string | null;
@@ -104,8 +106,8 @@ export default function PromptForm({ folders, currentFolderId, onSave }: PromptF
         />
       </div>
 
-      <button type="submit" disabled={uploading} style={{ width: "100%" }}>
-        {uploading ? "TRANSMITTING..." : "SAVE ENTRY"}
+      <button type="submit" disabled={uploading} style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "center", padding: "0.8rem" }} title="Save Entry">
+        {uploading ? "TRANSMITTING..." : <Save size={20} />}
       </button>
     </form>
   );

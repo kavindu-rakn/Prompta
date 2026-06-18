@@ -247,3 +247,23 @@ hr {
   background-color: var(--text-color);
   color: var(--bg-color);
 }
+
+.ai-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  transition: filter 0.2s ease;
+}
+
+[data-theme="dark"] .ai-icon {
+  filter: invert(1);
+}
+
+/* Fix icon blending when button background inverts on hover */
+button:hover .ai-icon {
+  filter: invert(1);
+}
+
+[data-theme="dark"] button:hover .ai-icon {
+  filter: invert(0);
+}

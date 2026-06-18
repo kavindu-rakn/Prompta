@@ -7,7 +7,9 @@ import PromptForm from "@/components/PromptForm";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
 
-type Folder = { id: string; name: string };
+import { Folder, Inbox } from "lucide-react";
+
+type FolderType = { id: string; name: string };
 type Share = { id: string; sender_email: string; prompts: Prompt };
 
 export default function Home() {
@@ -15,7 +17,7 @@ export default function Home() {
   
   // Data States
   const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [folders, setFolders] = useState<FolderType[]>([]);
   const [inbox, setInbox] = useState<Share[]>([]);
   
   // UI States
@@ -41,7 +43,7 @@ export default function Home() {
     const { data: promptData } = await supabase
       .from("prompts")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", user?.id || "")
       .order("created_at", { ascending: false });
     if (promptData) setPrompts(promptData);
     
@@ -49,13 +51,12 @@ export default function Home() {
     const { data: inboxData, error: inboxError } = await supabase
       .from("prompt_shares")
       .select(`id, sender_email, prompts (*)`)
-      .eq("receiver_email", user.email)
+      .eq("receiver_email", user?.email || "")
       .order("created_at", { ascending: false });
       
     if (inboxError) {
       console.error("Inbox Error:", inboxError);
     } else if (inboxData) {
-      // Because it's a many-to-one relation, 'prompts' will be a single object
       setInbox(inboxData as unknown as Share[]);
     }
 
@@ -169,8 +170,8 @@ export default function Home() {
         {/* LEFT COLUMN: FOLDERS */}
         <aside>
           <div className="column-header">
-            <span>[ FOLDERS ]</span>
-            <button onClick={() => setIsCreatingFolder(!isCreatingFolder)} style={{ padding: "0.2rem 0.6rem", fontSize: "0.9rem" }}>+</button>
+            <span title="Folders"><Folder size={24} /></span>
+            <button onClick={() => setIsCreatingFolder(!isCreatingFolder)} style={{ padding: "0.2rem 0.6rem", fontSize: "0.9rem", display: "flex", alignItems: "center" }}>+</button>
           </div>
           
           {isCreatingFolder && (
@@ -232,7 +233,7 @@ export default function Home() {
         {/* RIGHT COLUMN: INBOX */}
         <aside>
           <div className="column-header">
-            <span>[ INBOX ]</span>
+            <span title="Inbox"><Inbox size={24} /></span>
           </div>
           
           {loading ? (
