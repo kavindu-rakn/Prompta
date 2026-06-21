@@ -227,7 +227,7 @@ function DashboardContent() {
               className={`folder-tab ${activeFolderId === null ? "active" : ""}`}
               onClick={() => setActiveFolderId(null)}
             >
-              [ ALL ENTRIES ]
+              [ ALL FOLDERS ]
             </div>
             {folders.map(folder => (
               <div 
@@ -275,7 +275,7 @@ function DashboardContent() {
       {/* MODALS */}
       <AnimatePresence>
         {isWritingPrompt && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "flex-start", backgroundColor: "rgba(0,0,0,0.8)", backdropFilter: "blur(12px)", overflowY: "auto", padding: "4rem 1rem" }}>
+          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "flex-start", backgroundColor: "var(--overlay-bg)", backdropFilter: "blur(12px)", overflowY: "auto", padding: "4rem 1rem" }}>
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -294,7 +294,7 @@ function DashboardContent() {
         )}
 
         {sendPromptId && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)" }}>
+          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "var(--overlay-bg)", backdropFilter: "blur(4px)" }}>
             <motion.form 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -327,7 +327,7 @@ function DashboardContent() {
         )}
 
         {folderToDelete && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)" }}>
+          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "var(--overlay-bg)", backdropFilter: "blur(4px)" }}>
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -352,7 +352,7 @@ function DashboardContent() {
         )}
 
         {entryToDelete && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)" }}>
+          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "var(--overlay-bg)", backdropFilter: "blur(4px)" }}>
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
