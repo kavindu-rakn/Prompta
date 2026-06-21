@@ -1,30 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 export default function Atmosphere() {
-  const [position, setPosition] = useState({ x: -100, y: -100 });
+  const cursorRef = useRef<HTMLDivElement>(null);
   const [isHovering, setIsHovering] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
-    if (window.matchMedia("(pointer: fine)").matches) {
+    if (typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches) {
       setIsDesktop(true);
     }
 
     const onMouseMove = (e: MouseEvent) => {
-      setPosition({ x: e.clientX, y: e.clientY });
+      if (cursorRef.current) {
+        cursorRef.current.style.left = `${e.clientX}px`;
+        cursorRef.current.style.top = `${e.clientY}px`;
+      }
     };
 
     const onMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (
-        target.closest("button") || 
-        target.closest("a") || 
-        target.closest("input") || 
-        target.closest("select") || 
-        target.closest("textarea") || 
-        target.closest(".folder-item")
+        target?.closest?.("button") || 
+        target?.closest?.("a") || 
+        target?.closest?.("input") || 
+        target?.closest?.("select") || 
+        target?.closest?.("textarea") || 
+        target?.closest?.(".folder-item")
       ) {
         setIsHovering(true);
       } else {
@@ -32,8 +35,8 @@ export default function Atmosphere() {
       }
     };
 
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseover", onMouseOver);
+    window.addEventListener("mousemove", onMouseMove, { passive: true });
+    window.addEventListener("mouseover", onMouseOver, { passive: true });
     
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
@@ -44,7 +47,7 @@ export default function Atmosphere() {
   return (
     <>
       {/* NOISE LAYER */}
-      <svg style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 9997, opacity: 0.04 }}>
+      <svg className="noise-layer">
         <filter id="noiseFilter">
           <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" />
         </filter>
@@ -57,10 +60,11 @@ export default function Atmosphere() {
       {/* CUSTOM BRUTALIST CURSOR */}
       {isDesktop && (
         <div 
+          ref={cursorRef}
           style={{
             position: "fixed",
-            top: position.y,
-            left: position.x,
+            top: "-100px",
+            left: "-100px",
             width: isHovering ? "24px" : "12px",
             height: isHovering ? "24px" : "12px",
             backgroundColor: isHovering ? "transparent" : "var(--text-color)",
@@ -70,6 +74,7 @@ export default function Atmosphere() {
             zIndex: 10000,
             transition: "width 0.15s ease, height 0.15s ease, background-color 0.15s ease, border 0.15s ease, border-radius 0.15s ease",
             borderRadius: isHovering ? "0" : "50%",
+            willChange: "width, height, background-color, left, top",
           }}
         />
       )}

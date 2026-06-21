@@ -268,6 +268,23 @@ button:hover .ai-icon {
   filter: invert(0);
 }
 
+/* Noise Layer */
+.noise-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9997;
+  opacity: 0.04;
+}
+
+[data-theme="dark"] .noise-layer {
+  opacity: 0.06;
+  filter: invert(1);
+}
+
 /* CRT Scanlines */
 .crt-scanlines {
   position: fixed;
@@ -277,17 +294,17 @@ button:hover .ai-icon {
   height: 100vh;
   pointer-events: none;
   z-index: 9998;
-  background: linear-gradient(
+  background-image: linear-gradient(
     rgba(18, 16, 16, 0) 50%,
-    rgba(0, 0, 0, 0.05) 50%
+    rgba(0, 0, 0, 0.08) 50%
   );
   background-size: 100% 4px;
 }
 
 [data-theme="dark"] .crt-scanlines {
-  background: linear-gradient(
+  background-image: linear-gradient(
     rgba(18, 16, 16, 0) 50%,
-    rgba(0, 0, 0, 0.15) 50%
+    rgba(255, 255, 255, 0.07) 50%
   );
 }
 
