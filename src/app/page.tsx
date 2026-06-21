@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import PromptCard, { Prompt } from "@/components/PromptCard";
 import PromptForm from "@/components/PromptForm";
+import MagneticButton from "@/components/MagneticButton";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -150,9 +151,11 @@ export default function Home() {
             <li>Secure, encrypted personal access</li>
           </ul>
           <Link href="/login" style={{ textDecoration: "none", display: "block" }}>
-            <button style={{ fontSize: "1.1rem", padding: "1rem 2rem", width: "100%" }}>
-              [ JOIN PROMPTA ]
-            </button>
+            <MagneticButton style={{ width: "100%", display: "block" }}>
+              <button style={{ fontSize: "1.1rem", padding: "1rem 2rem", width: "100%" }}>
+                [ JOIN PROMPTA ]
+              </button>
+            </MagneticButton>
           </Link>
         </div>
       </main>
@@ -171,7 +174,9 @@ export default function Home() {
         <aside>
           <div className="column-header">
             <span title="Folders"><Folder size={24} /></span>
-            <button onClick={() => setIsCreatingFolder(!isCreatingFolder)} style={{ padding: "0.2rem 0.6rem", fontSize: "0.9rem", display: "flex", alignItems: "center" }}>+</button>
+            <MagneticButton>
+              <button onClick={() => setIsCreatingFolder(!isCreatingFolder)} style={{ padding: "0.2rem 0.6rem", fontSize: "0.9rem", display: "flex", alignItems: "center" }}>+</button>
+            </MagneticButton>
           </div>
           
           {isCreatingFolder && (

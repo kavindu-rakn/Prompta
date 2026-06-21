@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { Sun, Moon } from "lucide-react";
+import MagneticButton from "./MagneticButton";
 
 export default function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
 
   useEffect(() => {
-    // Check local storage on mount
     const savedTheme = localStorage.getItem("prompta-theme") as "light" | "dark" | null;
     if (savedTheme) {
       setTheme(savedTheme);
@@ -27,8 +27,10 @@ export default function ThemeToggle() {
   };
 
   return (
-    <button onClick={toggleTheme} style={{ marginLeft: "1rem", padding: "0.5rem", display: "flex", alignItems: "center" }} title="Toggle Theme">
-      {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-    </button>
+    <MagneticButton style={{ marginLeft: "1rem" }}>
+      <button onClick={toggleTheme} style={{ padding: "0.5rem", display: "flex", alignItems: "center" }} title="Toggle Theme">
+        {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+      </button>
+    </MagneticButton>
   );
 }
