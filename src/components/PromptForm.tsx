@@ -76,6 +76,7 @@ export default function PromptForm({ folders, currentFolderId, onSave }: PromptF
         onChange={(e) => setTitle(e.target.value)}
         maxLength={100}
         disabled={uploading}
+        style={{ marginBottom: "1rem", padding: "1rem" }}
       />
       
       <select 
@@ -83,7 +84,7 @@ export default function PromptForm({ folders, currentFolderId, onSave }: PromptF
         value={folderId} 
         onChange={(e) => setFolderId(e.target.value)}
         disabled={uploading}
-        style={{ cursor: "pointer" }}
+        style={{ cursor: "pointer", marginBottom: "1rem", padding: "1rem" }}
       >
         <option value="">[ NO FOLDER ]</option>
         {folders.map(f => (
@@ -94,18 +95,20 @@ export default function PromptForm({ folders, currentFolderId, onSave }: PromptF
       <textarea
         className="input-field"
         placeholder="INPUT PROMPT DATA..."
-        rows={6}
+        rows={5}
         value={content}
         onChange={(e) => setContent(e.target.value)}
         disabled={uploading}
+        style={{ marginBottom: "1rem", padding: "1rem" }}
       ></textarea>
       
-      <div style={{ marginBottom: "2rem" }}>
+      <div style={{ marginBottom: "1rem" }}>
         <input 
           id="file-upload"
           type="file" 
           onChange={(e) => setFile(e.target.files?.[0] || null)}
           disabled={uploading}
+          style={{ padding: "0.8rem" }}
         />
       </div>
 

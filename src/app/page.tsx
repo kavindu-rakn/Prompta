@@ -275,12 +275,12 @@ function DashboardContent() {
       {/* MODALS */}
       <AnimatePresence>
         {isWritingPrompt && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "flex-start", backgroundColor: "var(--overlay-bg)", backdropFilter: "blur(12px)", overflowY: "auto", padding: "4rem 1rem" }}>
+          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "var(--overlay-bg)", backdropFilter: "blur(12px)", overflowY: "auto", padding: "2rem" }}>
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              style={{ width: "100%", maxWidth: "800px", position: "relative" }}
+              style={{ width: "100%", maxWidth: "1000px", position: "relative" }}
             >
               <button 
                 onClick={() => setIsWritingPrompt(false)}
