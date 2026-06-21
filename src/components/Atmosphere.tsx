@@ -71,7 +71,7 @@ export default function Atmosphere() {
             border: isHovering ? "2px solid var(--text-color)" : "none",
             transform: "translate(-50%, -50%)",
             pointerEvents: "none",
-            zIndex: 10000,
+            zIndex: 99999,
             transition: "width 0.15s ease, height 0.15s ease, background-color 0.15s ease, border 0.15s ease, border-radius 0.15s ease",
             borderRadius: isHovering ? "0" : "50%",
             willChange: "width, height, background-color, left, top",

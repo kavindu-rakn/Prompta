@@ -82,6 +82,14 @@ export default function PromptCard({ prompt, onDelete, onSend, isInbox, senderEm
             </button>
           </MagneticButton>
         )}
+        
+        {isInbox && onDelete && (
+          <MagneticButton style={{ marginLeft: "auto" }}>
+            <button onClick={() => onDelete(prompt.id)} title="Purge Transmission" style={{ padding: "0.6rem", display: "flex", alignItems: "center", backgroundColor: "var(--text-color)", color: "var(--bg-color)" }}>
+              <Trash2 size={18} />
+            </button>
+          </MagneticButton>
+        )}
       </div>
     </div>
   );

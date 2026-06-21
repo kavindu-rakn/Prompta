@@ -32,6 +32,7 @@ export default function Home() {
   const [sendPromptId, setSendPromptId] = useState<string | null>(null);
   const [receiverEmail, setReceiverEmail] = useState("");
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
+  const [entryToDelete, setEntryToDelete] = useState<{ id: string, type: "prompt" | "inbox" } | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -115,11 +116,26 @@ export default function Home() {
     }
   };
 
-  const handleDeletePrompt = async (id: string) => {
-    const { error } = await supabase.from("prompts").delete().eq("id", id);
-    if (!error) {
-      setPrompts(prompts.filter((p) => p.id !== id));
+  const handleDeletePromptClick = (id: string) => {
+    setEntryToDelete({ id, type: "prompt" });
+  };
+
+  const handleDeleteInboxClick = (id: string) => {
+    setEntryToDelete({ id, type: "inbox" });
+  };
+
+  const confirmDeleteEntry = async () => {
+    if (!entryToDelete) return;
+    if (entryToDelete.type === "prompt") {
+      await supabase.from("prompts").delete().eq("id", entryToDelete.id);
+      setPrompts(prompts.filter((p) => p.id !== entryToDelete.id));
+      toast("ENTRY PURGED", "success");
+    } else {
+      await supabase.from("prompt_shares").delete().eq("id", entryToDelete.id);
+      setInbox(inbox.filter((s) => s.id !== entryToDelete.id));
+      toast("INBOX TRANSMISSION PURGED", "success");
     }
+    setEntryToDelete(null);
   };
 
   const handleSendPromptClick = (id: string) => {
@@ -248,7 +264,7 @@ export default function Home() {
             <p style={{ opacity: 0.7 }}>NO ENTRIES FOUND IN THIS DIRECTORY.</p>
           ) : (
             filteredPrompts.map((prompt) => (
-              <PromptCard key={prompt.id} prompt={prompt} onDelete={handleDeletePrompt} onSend={handleSendPromptClick} />
+              <PromptCard key={prompt.id} prompt={prompt} onDelete={handleDeletePromptClick} onSend={handleSendPromptClick} />
             ))
           )}
         </section>
@@ -270,6 +286,7 @@ export default function Home() {
                 prompt={share.prompts} 
                 isInbox={true} 
                 senderEmail={share.sender_email} 
+                onDelete={() => handleDeleteInboxClick(share.id)}
               />
             ))
           )}
@@ -330,6 +347,33 @@ export default function Home() {
                 </MagneticButton>
                 <MagneticButton style={{ flex: 1 }}>
                   <button type="button" onClick={confirmDeleteFolder} style={{ width: "100%", padding: "0.8rem", backgroundColor: "#ff3333", color: "white" }}>CONFIRM</button>
+                </MagneticButton>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {entryToDelete && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)" }}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="prompt-card" 
+              style={{ padding: "2rem", width: "90%", maxWidth: "450px" }}
+            >
+              <h3 style={{ borderBottom: "none", marginBottom: "1.5rem" }}>
+                [ {entryToDelete.type === "prompt" ? "PURGE ENTRY" : "PURGE TRANSMISSION"} ]
+              </h3>
+              <p style={{ marginBottom: "2rem", opacity: 0.8 }}>
+                Are you sure you want to delete this {entryToDelete.type === "prompt" ? "entry" : "transmission"}? This action cannot be undone.
+              </p>
+              <div style={{ display: "flex", gap: "1rem" }}>
+                <MagneticButton style={{ flex: 1 }}>
+                  <button type="button" onClick={() => setEntryToDelete(null)} style={{ width: "100%", padding: "0.8rem", backgroundColor: "var(--subtle-gray)", color: "var(--text-color)" }}>CANCEL</button>
+                </MagneticButton>
+                <MagneticButton style={{ flex: 1 }}>
+                  <button type="button" onClick={confirmDeleteEntry} style={{ width: "100%", padding: "0.8rem", backgroundColor: "#ff3333", color: "white" }}>CONFIRM</button>
                 </MagneticButton>
               </div>
             </motion.div>
