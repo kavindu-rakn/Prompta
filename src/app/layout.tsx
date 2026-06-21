@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import Navbar from "@/components/Navbar";
+import BootSequence from "@/components/BootSequence";
 
 export const metadata: Metadata = {
   title: "Prompta - Prompt Bank",
@@ -32,6 +33,7 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <BootSequence />
         <AuthProvider>
           <Navbar />
           {children}
