@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useToast } from "./ToastProvider";
 
 export default function AuthUI() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleOAuth = async (provider: 'google') => {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -14,7 +16,7 @@ export default function AuthUI() {
         redirectTo: window.location.origin
       }
     });
-    if (error) alert(error.message);
+    if (error) toast(error.message, "error");
   };
 
   const handleMagicLink = async (e: React.FormEvent) => {
@@ -26,8 +28,8 @@ export default function AuthUI() {
         emailRedirectTo: window.location.origin
       }
     });
-    if (error) alert(error.message);
-    else alert("MAGIC LINK SENT TO YOUR EMAIL! PLEASE CHECK YOUR INBOX.");
+    if (error) toast(error.message, "error");
+    else toast("MAGIC LINK SENT TO YOUR EMAIL! PLEASE CHECK YOUR INBOX.", "success");
     setLoading(false);
   };
 

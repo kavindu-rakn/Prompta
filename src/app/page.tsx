@@ -7,6 +7,7 @@ import PromptForm from "@/components/PromptForm";
 import MagneticButton from "@/components/MagneticButton";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/ToastProvider";
 
 import { Folder, Inbox } from "lucide-react";
 
@@ -15,6 +16,7 @@ type Share = { id: string; sender_email: string; prompts: Prompt };
 
 export default function Home() {
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
   
   // Data States
   const [prompts, setPrompts] = useState<Prompt[]>([]);
@@ -98,7 +100,7 @@ export default function Home() {
 
     if (error) {
       console.error("Error saving prompt:", error);
-      alert("ERROR SAVING ENTRY");
+      toast("ERROR SAVING ENTRY", "error");
     } else if (data) {
       setPrompts([data[0], ...prompts]);
     }
@@ -125,9 +127,9 @@ export default function Home() {
       
     if (error) {
       console.error(error);
-      alert("FAILED TO SEND COMM-LINK");
+      toast("FAILED TO SEND COMM-LINK", "error");
     } else {
-      alert("PROMPT SENT SUCCESSFULLY!");
+      toast("PROMPT SENT SUCCESSFULLY!", "success");
     }
   };
 

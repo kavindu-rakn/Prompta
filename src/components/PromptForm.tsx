@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 import { Save } from "lucide-react";
 import MagneticButton from "./MagneticButton";
+import { useToast } from "./ToastProvider";
 
 interface PromptFormProps {
   folders: { id: string, name: string }[];
@@ -13,6 +14,7 @@ interface PromptFormProps {
 }
 
 export default function PromptForm({ folders, currentFolderId, onSave }: PromptFormProps) {
+  const { toast } = useToast();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [folderId, setFolderId] = useState<string>(currentFolderId || "");
@@ -38,7 +40,7 @@ export default function PromptForm({ folders, currentFolderId, onSave }: PromptF
 
       if (uploadError) {
         console.error("Upload error:", uploadError);
-        alert("ERROR UPLOADING FILE!");
+        toast("ERROR UPLOADING FILE!", "error");
         setUploading(false);
         return;
       }

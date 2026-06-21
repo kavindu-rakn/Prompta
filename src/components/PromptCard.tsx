@@ -1,7 +1,7 @@
 import React from "react";
-import { Copy, Bot, Sparkles, Cpu, Send, Trash2 } from "lucide-react";
-
+import { Copy, Send, Trash2 } from "lucide-react";
 import MagneticButton from "./MagneticButton";
+import { useToast } from "./ToastProvider";
 
 export type Prompt = {
   id: string;
@@ -22,9 +22,11 @@ interface PromptCardProps {
 }
 
 export default function PromptCard({ prompt, onDelete, onSend, isInbox, senderEmail }: PromptCardProps) {
+  const { toast } = useToast();
+
   const handleCopy = async () => {
     await navigator.clipboard.writeText(prompt.content);
-    alert("COPIED TO CLIPBOARD");
+    toast("COPIED TO CLIPBOARD", "success");
   };
 
   const handleAIAction = async (url: string) => {

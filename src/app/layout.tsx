@@ -4,6 +4,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import Navbar from "@/components/Navbar";
 import BootSequence from "@/components/BootSequence";
 import Atmosphere from "@/components/Atmosphere";
+import { ToastProvider } from "@/components/ToastProvider";
 
 export const metadata: Metadata = {
   title: "Prompta - Prompt Bank",
@@ -36,10 +37,12 @@ export default function RootLayout({
       <body>
         <BootSequence />
         <Atmosphere />
-        <AuthProvider>
-          <Navbar />
-          {children}
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <Navbar />
+            {children}
+          </AuthProvider>
+        </ToastProvider>
       </body>
     </html>
   );
