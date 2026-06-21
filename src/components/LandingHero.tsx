@@ -57,16 +57,16 @@ const Typewriter = ({ text }: { text: string }) => {
 
 export default function LandingHero() {
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", position: "relative", overflow: "hidden", width: "100%" }}>
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", position: "relative", overflow: "hidden", width: "100%" }}>
       
       <motion.div 
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="prompt-card" 
-        style={{ maxWidth: "700px", width: "90%", margin: "0 auto", textAlign: "left", padding: "4rem", zIndex: 10, position: "relative", marginTop: "-5vh" }}
+        style={{ maxWidth: "850px", width: "95%", marginLeft: "auto", marginRight: "auto", marginTop: 0, marginBottom: 0, zIndex: 10, position: "relative" }}
       >
-        <h1 style={{ fontSize: "3.5rem", marginBottom: "1rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-2px", lineHeight: 1.1 }}>
+        <div className="prompt-card" style={{ textAlign: "left", padding: "2.5rem 3rem" }}>
+          <h1 style={{ fontSize: "3.5rem", marginBottom: "1rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-2px", lineHeight: 1.1 }}>
           <Typewriter text="WELCOME TO PROMPTA" />
         </h1>
         
@@ -108,6 +108,7 @@ export default function LandingHero() {
             </MagneticButton>
           </Link>
         </motion.div>
+        </div>
       </motion.div>
 
       <Marquee />

@@ -172,7 +172,8 @@ export default function Home() {
 
   if (!user) {
     return (
-      <main style={{ width: "100%", position: "relative" }}>
+      <main style={{ width: "100%", height: "calc(100vh - 85px)", position: "relative" }}>
+        <style dangerouslySetInnerHTML={{ __html: `body { overflow: hidden; }` }} />
         <LandingHero />
       </main>
     );
