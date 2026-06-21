@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import PromptCard, { Prompt } from "@/components/PromptCard";
 import PromptForm from "@/components/PromptForm";
@@ -9,16 +9,19 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import LandingHero from "@/components/LandingHero";
+import { useSearchParams } from "next/navigation";
 
-import { Folder, Inbox } from "lucide-react";
+import { Folder, Inbox, X, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 type FolderType = { id: string; name: string };
 type Share = { id: string; sender_email: string; prompts: Prompt };
 
-export default function Home() {
+function DashboardContent() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const currentView = searchParams.get("view") || "vault";
   
   // Data States
   const [prompts, setPrompts] = useState<Prompt[]>([]);
@@ -30,6 +33,7 @@ export default function Home() {
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [isWritingPrompt, setIsWritingPrompt] = useState(false);
   const [sendPromptId, setSendPromptId] = useState<string | null>(null);
   const [receiverEmail, setReceiverEmail] = useState("");
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
@@ -114,6 +118,8 @@ export default function Home() {
       toast("ERROR SAVING ENTRY", "error");
     } else if (data) {
       setPrompts([data[0], ...prompts]);
+      setIsWritingPrompt(false);
+      toast("ENTRY SECURED", "success");
     }
   };
 
@@ -184,84 +190,15 @@ export default function Home() {
     : prompts;
 
   return (
-    <main className="container" style={{ maxWidth: "1600px", padding: "2rem" }}>
-      <div className="dashboard-grid">
-        
-        {/* LEFT COLUMN: FOLDERS */}
-        <aside>
-          <div className="column-header">
-            <span title="Folders"><Folder size={24} /></span>
-            <MagneticButton>
-              <button onClick={() => setIsCreatingFolder(!isCreatingFolder)} style={{ padding: "0.2rem 0.6rem", fontSize: "0.9rem", display: "flex", alignItems: "center" }}>+</button>
-            </MagneticButton>
-          </div>
-          
-          {isCreatingFolder && (
-            <form onSubmit={handleCreateFolder} style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-              <input 
-                type="text" 
-                className="input-field" 
-                placeholder="NAME..." 
-                value={newFolderName}
-                onChange={e => setNewFolderName(e.target.value)}
-                style={{ padding: "0.5rem", marginBottom: 0 }}
-                autoFocus
-              />
-              <button type="submit" style={{ padding: "0.5rem" }}>OK</button>
-            </form>
-          )}
-
-          <div 
-            className={`folder-item ${activeFolderId === null ? "active" : ""}`}
-            onClick={() => setActiveFolderId(null)}
-          >
-            [ ALL ENTRIES ]
-          </div>
-          
-          {folders.map(folder => (
-            <div 
-              key={folder.id}
-              className={`folder-item ${activeFolderId === folder.id ? "active" : ""}`}
-              onClick={() => setActiveFolderId(folder.id)}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-            >
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{folder.name}</span>
-              <span onClick={(e) => handleDeleteFolderClick(folder.id, e)} style={{ opacity: 0.5, fontSize: "0.8rem", paddingLeft: "0.5rem" }}>X</span>
-            </div>
-          ))}
-        </aside>
-
-        {/* MIDDLE COLUMN: PROMPTS */}
+    <main className="container" style={{ maxWidth: "800px", padding: "2rem" }}>
+      
+      {currentView === "inbox" ? (
         <section>
-          <PromptForm folders={folders} currentFolderId={activeFolderId} onSave={handleSavePrompt} />
-          
-          <hr style={{ margin: "2rem 0" }} />
-          
-          <div className="column-header">
-            <span>[ {activeFolderId ? folders.find(f => f.id === activeFolderId)?.name || "FOLDER" : "ALL ENTRIES"} ]</span>
-          </div>
-          
-          {loading ? (
-            <p>FETCHING DATA...</p>
-          ) : filteredPrompts.length === 0 ? (
-            <p style={{ opacity: 0.7 }}>NO ENTRIES FOUND IN THIS DIRECTORY.</p>
-          ) : (
-            filteredPrompts.map((prompt) => (
-              <PromptCard key={prompt.id} prompt={prompt} onDelete={handleDeletePromptClick} onSend={handleSendPromptClick} />
-            ))
-          )}
-        </section>
-
-        {/* RIGHT COLUMN: INBOX */}
-        <aside>
-          <div className="column-header">
-            <span title="Inbox"><Inbox size={24} /></span>
-          </div>
-          
+          <h2 style={{ marginBottom: "2rem" }}>[ INCOMING TRANSMISSIONS ]</h2>
           {loading ? (
             <p>SCANNING COMMS...</p>
           ) : inbox.length === 0 ? (
-            <p style={{ opacity: 0.7, fontSize: "0.9rem" }}>NO INCOMING TRANSMISSIONS.</p>
+            <p style={{ opacity: 0.7, fontSize: "1.2rem", fontWeight: "bold" }}>NO INCOMING TRANSMISSIONS.</p>
           ) : (
             inbox.map((share) => share.prompts && (
               <PromptCard 
@@ -273,11 +210,89 @@ export default function Home() {
               />
             ))
           )}
-        </aside>
+        </section>
+      ) : (
+        <section>
+          <MagneticButton style={{ width: "100%", marginBottom: "3rem", display: "block" }}>
+            <button 
+              onClick={() => setIsWritingPrompt(true)}
+              style={{ width: "100%", padding: "1.5rem", fontSize: "1.2rem", backgroundColor: "var(--text-color)", color: "var(--bg-color)" }}
+            >
+              [ + INITIATE NEW ENTRY ]
+            </button>
+          </MagneticButton>
 
-      </div>
+          <div className="folder-tabs">
+            <div 
+              className={`folder-tab ${activeFolderId === null ? "active" : ""}`}
+              onClick={() => setActiveFolderId(null)}
+            >
+              [ ALL ENTRIES ]
+            </div>
+            {folders.map(folder => (
+              <div 
+                key={folder.id}
+                className={`folder-tab ${activeFolderId === folder.id ? "active" : ""}`}
+                onClick={() => setActiveFolderId(folder.id)}
+              >
+                <span>{folder.name}</span>
+                <span onClick={(e) => handleDeleteFolderClick(folder.id, e)} style={{ opacity: 0.5, marginLeft: "0.5rem" }}><X size={14} /></span>
+              </div>
+            ))}
+            
+            {isCreatingFolder ? (
+              <form onSubmit={handleCreateFolder} style={{ display: "flex", gap: "0.5rem" }}>
+                <input 
+                  type="text" 
+                  placeholder="NAME..." 
+                  value={newFolderName}
+                  onChange={e => setNewFolderName(e.target.value)}
+                  style={{ padding: "0.2rem 0.5rem", width: "120px", border: "2px solid var(--border-color)", background: "transparent", color: "var(--text-color)", fontFamily: "inherit", textTransform: "uppercase", outline: "none" }}
+                  autoFocus
+                />
+                <button type="button" onClick={() => setIsCreatingFolder(false)} style={{ padding: "0.2rem 0.5rem" }}>X</button>
+                <button type="submit" style={{ padding: "0.2rem 0.5rem" }}>OK</button>
+              </form>
+            ) : (
+              <div className="folder-tab" onClick={() => setIsCreatingFolder(true)}>
+                [ + NEW ]
+              </div>
+            )}
+          </div>
+          
+          {loading ? (
+            <p>FETCHING DATA...</p>
+          ) : filteredPrompts.length === 0 ? (
+            <p style={{ opacity: 0.7, fontSize: "1.2rem", fontWeight: "bold" }}>NO ENTRIES FOUND IN THIS DIRECTORY.</p>
+          ) : (
+            filteredPrompts.map((prompt) => (
+              <PromptCard key={prompt.id} prompt={prompt} onDelete={handleDeletePromptClick} onSend={handleSendPromptClick} />
+            ))
+          )}
+        </section>
+      )}
 
+      {/* MODALS */}
       <AnimatePresence>
+        {isWritingPrompt && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "flex-start", backgroundColor: "rgba(0,0,0,0.8)", backdropFilter: "blur(12px)", overflowY: "auto", padding: "4rem 1rem" }}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              style={{ width: "100%", maxWidth: "800px", position: "relative" }}
+            >
+              <button 
+                onClick={() => setIsWritingPrompt(false)}
+                style={{ position: "absolute", top: "-3rem", right: "0", background: "none", border: "none", color: "var(--border-color)", fontSize: "1.2rem", padding: "0", display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontWeight: "bold" }}
+              >
+                [ ABORT ENTRY ] <X size={24} />
+              </button>
+              <PromptForm folders={folders} currentFolderId={activeFolderId} onSave={handleSavePrompt} />
+            </motion.div>
+          </div>
+        )}
+
         {sendPromptId && (
           <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)" }}>
             <motion.form 
@@ -364,5 +379,13 @@ export default function Home() {
         )}
       </AnimatePresence>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<main className="container"><h2 style={{ borderBottom: "none" }}>[ INITIALIZING... ]</h2></main>}>
+      <DashboardContent />
+    </Suspense>
   );
 }
