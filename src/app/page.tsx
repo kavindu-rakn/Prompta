@@ -10,6 +10,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 
 import { Folder, Inbox } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 type FolderType = { id: string; name: string };
 type Share = { id: string; sender_email: string; prompts: Prompt };
@@ -28,6 +29,9 @@ export default function Home() {
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [sendPromptId, setSendPromptId] = useState<string | null>(null);
+  const [receiverEmail, setReceiverEmail] = useState("");
+  const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -82,14 +86,19 @@ export default function Home() {
     }
   };
 
-  const handleDeleteFolder = async (id: string, e: React.MouseEvent) => {
+  const handleDeleteFolderClick = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Delete this folder? Prompts inside will be moved to NO FOLDER.")) return;
-    
-    await supabase.from("folders").delete().eq("id", id);
-    setFolders(folders.filter(f => f.id !== id));
-    if (activeFolderId === id) setActiveFolderId(null);
+    setFolderToDelete(id);
+  };
+
+  const confirmDeleteFolder = async () => {
+    if (!folderToDelete) return;
+    await supabase.from("folders").delete().eq("id", folderToDelete);
+    setFolders(folders.filter(f => f.id !== folderToDelete));
+    if (activeFolderId === folderToDelete) setActiveFolderId(null);
     fetchData(); // Refresh prompts to show them in NO FOLDER
+    setFolderToDelete(null);
+    toast("DIRECTORY PURGED", "success");
   };
 
   const handleSavePrompt = async (title: string, content: string, attachment_url: string | null, attachment_name: string | null, folder_id: string | null) => {
@@ -113,15 +122,20 @@ export default function Home() {
     }
   };
 
-  const handleSendPrompt = async (id: string) => {
-    const email = prompt("ENTER RECEIVER EMAIL ADDRESS:");
-    if (!email) return;
+  const handleSendPromptClick = (id: string) => {
+    setSendPromptId(id);
+    setReceiverEmail("");
+  };
+
+  const confirmSendPrompt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sendPromptId || !receiverEmail) return;
     
     const { error } = await supabase
       .from("prompt_shares")
       .insert([{ 
-        prompt_id: id, 
-        receiver_email: email,
+        prompt_id: sendPromptId, 
+        receiver_email: receiverEmail,
         sender_email: user?.email || "unknown"
       }]);
       
@@ -131,6 +145,8 @@ export default function Home() {
     } else {
       toast("PROMPT SENT SUCCESSFULLY!", "success");
     }
+    
+    setSendPromptId(null);
   };
 
   if (authLoading) {
@@ -211,7 +227,7 @@ export default function Home() {
               style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
             >
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{folder.name}</span>
-              <span onClick={(e) => handleDeleteFolder(folder.id, e)} style={{ opacity: 0.5, fontSize: "0.8rem", paddingLeft: "0.5rem" }}>X</span>
+              <span onClick={(e) => handleDeleteFolderClick(folder.id, e)} style={{ opacity: 0.5, fontSize: "0.8rem", paddingLeft: "0.5rem" }}>X</span>
             </div>
           ))}
         </aside>
@@ -232,7 +248,7 @@ export default function Home() {
             <p style={{ opacity: 0.7 }}>NO ENTRIES FOUND IN THIS DIRECTORY.</p>
           ) : (
             filteredPrompts.map((prompt) => (
-              <PromptCard key={prompt.id} prompt={prompt} onDelete={handleDeletePrompt} onSend={handleSendPrompt} />
+              <PromptCard key={prompt.id} prompt={prompt} onDelete={handleDeletePrompt} onSend={handleSendPromptClick} />
             ))
           )}
         </section>
@@ -260,6 +276,66 @@ export default function Home() {
         </aside>
 
       </div>
+
+      <AnimatePresence>
+        {sendPromptId && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)" }}>
+            <motion.form 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              onSubmit={confirmSendPrompt}
+              className="prompt-card" 
+              style={{ padding: "2rem", width: "90%", maxWidth: "450px" }}
+            >
+              <h3 style={{ borderBottom: "none", marginBottom: "1.5rem" }}>[ INITIATE COMM-LINK ]</h3>
+              <input 
+                type="email" 
+                className="input-field" 
+                placeholder="RECEIVER EMAIL ADDRESS..." 
+                value={receiverEmail}
+                onChange={(e) => setReceiverEmail(e.target.value)}
+                required
+                autoFocus
+                style={{ marginBottom: "1.5rem" }}
+              />
+              <div style={{ display: "flex", gap: "1rem" }}>
+                <MagneticButton style={{ flex: 1 }}>
+                  <button type="button" onClick={() => setSendPromptId(null)} style={{ width: "100%", padding: "0.8rem", backgroundColor: "var(--subtle-gray)", color: "var(--text-color)" }}>CANCEL</button>
+                </MagneticButton>
+                <MagneticButton style={{ flex: 1 }}>
+                  <button type="submit" style={{ width: "100%", padding: "0.8rem", backgroundColor: "var(--text-color)", color: "var(--bg-color)" }}>TRANSMIT</button>
+                </MagneticButton>
+              </div>
+            </motion.form>
+          </div>
+        )}
+
+        {folderToDelete && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)" }}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="prompt-card" 
+              style={{ padding: "2rem", width: "90%", maxWidth: "450px" }}
+            >
+              <h3 style={{ borderBottom: "none", marginBottom: "1.5rem" }}>[ PURGE DIRECTORY ]</h3>
+              <p style={{ marginBottom: "2rem", opacity: 0.8 }}>
+                Are you sure you want to delete this folder? Prompts inside will be moved to [ ALL ENTRIES ].
+              </p>
+              <div style={{ display: "flex", gap: "1rem" }}>
+                <MagneticButton style={{ flex: 1 }}>
+                  <button type="button" onClick={() => setFolderToDelete(null)} style={{ width: "100%", padding: "0.8rem", backgroundColor: "var(--subtle-gray)", color: "var(--text-color)" }}>CANCEL</button>
+                </MagneticButton>
+                <MagneticButton style={{ flex: 1 }}>
+                  <button type="button" onClick={confirmDeleteFolder} style={{ width: "100%", padding: "0.8rem", backgroundColor: "#ff3333", color: "white" }}>CONFIRM</button>
+                </MagneticButton>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
