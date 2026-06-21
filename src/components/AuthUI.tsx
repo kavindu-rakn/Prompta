@@ -42,32 +42,32 @@ export default function AuthUI() {
       transition={{ duration: 0.8, ease: "easeOut" }}
       style={{ maxWidth: "850px", width: "95%", marginLeft: "auto", marginRight: "auto", marginTop: 0, marginBottom: 0, zIndex: 10, position: "relative" }}
     >
-      <div className="prompt-card" style={{ textAlign: "left", padding: "2.5rem 3rem" }}>
-        <h2 style={{ fontSize: "3.5rem", borderBottom: "none", marginBottom: "2rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-2px", lineHeight: 1.1 }}>
+      <div className="prompt-card" style={{ textAlign: "left", padding: "clamp(1.5rem, 5vw, 3rem)" }}>
+        <h2 style={{ fontSize: "clamp(2rem, 6vw, 3.5rem)", borderBottom: "none", marginBottom: "clamp(1rem, 3vh, 2rem)", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-2px", lineHeight: 1.1 }}>
           [ ACCESS TERMINAL ]
         </h2>
         
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "2rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "clamp(1rem, 3vh, 2rem)" }}>
           <MagneticButton style={{ width: "100%", display: "block" }}>
-            <button onClick={() => handleOAuth('google')} style={{ width: "100%", fontSize: "1.2rem", padding: "1.5rem 2rem", fontWeight: 900, letterSpacing: "2px", textTransform: "uppercase" }}>[ SIGN IN WITH GOOGLE ]</button>
+            <button onClick={() => handleOAuth('google')} style={{ width: "100%", fontSize: "clamp(1rem, 2.5vw, 1.2rem)", padding: "clamp(1rem, 2.5vh, 1.5rem) clamp(1rem, 3vw, 2rem)", fontWeight: 900, letterSpacing: "2px", textTransform: "uppercase" }}>[ SIGN IN WITH GOOGLE ]</button>
           </MagneticButton>
         </div>
 
-        <hr style={{ margin: "3rem 0", borderBottom: "2px solid var(--border-color)" }} />
+        <hr style={{ margin: "clamp(1.5rem, 4vh, 3rem) 0", borderBottom: "2px solid var(--border-color)" }} />
 
-        <form onSubmit={handleMagicLink} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <p style={{ textAlign: "left", fontSize: "1.2rem", opacity: 0.9 }}>OR USE SECURE MAGIC LINK (EMAIL):</p>
+        <form onSubmit={handleMagicLink} style={{ display: "flex", flexDirection: "column", gap: "clamp(1rem, 3vh, 1.5rem)" }}>
+          <p style={{ textAlign: "left", fontSize: "clamp(0.9rem, 2.5vw, 1.2rem)", opacity: 0.9 }}>OR USE SECURE MAGIC LINK (EMAIL):</p>
           <input 
             type="email" 
             className="input-field" 
             placeholder="ENTER EMAIL ADDRESS..." 
-            style={{ marginBottom: 0, padding: "1.5rem", fontSize: "1.2rem" }}
+            style={{ marginBottom: 0, padding: "clamp(1rem, 2vh, 1.5rem)", fontSize: "clamp(1rem, 2.5vw, 1.2rem)" }}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
           <MagneticButton style={{ width: "100%", display: "block" }}>
-            <button type="submit" disabled={loading} style={{ width: "100%", fontSize: "1.2rem", padding: "1.5rem 2rem", fontWeight: 900, letterSpacing: "2px", textTransform: "uppercase", backgroundColor: "var(--text-color)", color: "var(--bg-color)" }}>
+            <button type="submit" disabled={loading} style={{ width: "100%", fontSize: "clamp(1rem, 2.5vw, 1.2rem)", padding: "clamp(1rem, 2.5vh, 1.5rem) clamp(1rem, 3vw, 2rem)", fontWeight: 900, letterSpacing: "2px", textTransform: "uppercase", backgroundColor: "var(--text-color)", color: "var(--bg-color)" }}>
               {loading ? "TRANSMITTING..." : "[ SEND MAGIC LINK ]"}
             </button>
           </MagneticButton>
