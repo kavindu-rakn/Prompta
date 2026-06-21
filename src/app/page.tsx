@@ -190,7 +190,7 @@ function DashboardContent() {
     : prompts;
 
   return (
-    <main className="container" style={{ maxWidth: "800px", padding: "2rem" }}>
+    <main className="container" style={{ maxWidth: "1200px", padding: "2rem" }}>
       
       {currentView === "inbox" ? (
         <section>
@@ -200,15 +200,17 @@ function DashboardContent() {
           ) : inbox.length === 0 ? (
             <p style={{ opacity: 0.7, fontSize: "1.2rem", fontWeight: "bold" }}>NO INCOMING TRANSMISSIONS.</p>
           ) : (
-            inbox.map((share) => share.prompts && (
-              <PromptCard 
-                key={share.id} 
-                prompt={share.prompts} 
-                isInbox={true} 
-                senderEmail={share.sender_email} 
-                onDelete={() => handleDeleteInboxClick(share.id)}
-              />
-            ))
+            <div className="prompt-grid">
+              {inbox.map((share) => share.prompts && (
+                <PromptCard 
+                  key={share.id} 
+                  prompt={share.prompts} 
+                  isInbox={true} 
+                  senderEmail={share.sender_email} 
+                  onDelete={() => handleDeleteInboxClick(share.id)}
+                />
+              ))}
+            </div>
           )}
         </section>
       ) : (
@@ -265,9 +267,11 @@ function DashboardContent() {
           ) : filteredPrompts.length === 0 ? (
             <p style={{ opacity: 0.7, fontSize: "1.2rem", fontWeight: "bold" }}>NO ENTRIES FOUND IN THIS DIRECTORY.</p>
           ) : (
-            filteredPrompts.map((prompt) => (
-              <PromptCard key={prompt.id} prompt={prompt} onDelete={handleDeletePromptClick} onSend={handleSendPromptClick} />
-            ))
+            <div className="prompt-grid">
+              {filteredPrompts.map((prompt) => (
+                <PromptCard key={prompt.id} prompt={prompt} onDelete={handleDeletePromptClick} onSend={handleSendPromptClick} />
+              ))}
+            </div>
           )}
         </section>
       )}
