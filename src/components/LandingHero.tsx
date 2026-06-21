@@ -1,0 +1,116 @@
+"use client";
+
+import { motion } from "framer-motion";
+import Link from "next/link";
+import MagneticButton from "./MagneticButton";
+import { useEffect, useState } from "react";
+
+const Marquee = () => {
+  return (
+    <div style={{ position: "absolute", bottom: "0", left: "0", width: "100vw", overflow: "hidden", whiteSpace: "nowrap", borderTop: "2px solid var(--border-color)", padding: "1rem 0", background: "var(--bg-color)", zIndex: 1 }}>
+      <motion.div
+        initial={{ x: "0%" }}
+        animate={{ x: "-50%" }}
+        transition={{ repeat: Infinity, ease: "linear", duration: 20 }}
+        style={{ display: "inline-block", fontSize: "1.2rem", fontWeight: 900, letterSpacing: "4px" }}
+      >
+        <span style={{ marginRight: "4rem" }}>/// SECURE PROMPT VAULT</span>
+        <span style={{ marginRight: "4rem" }}>/// NEURAL NET LINK ESTABLISHED</span>
+        <span style={{ marginRight: "4rem" }}>/// END-TO-END ENCRYPTION</span>
+        <span style={{ marginRight: "4rem" }}>/// ZERO TELEMETRY</span>
+        <span style={{ marginRight: "4rem" }}>/// MAXIMUM EFFICIENCY</span>
+        <span style={{ marginRight: "4rem" }}>/// SECURE PROMPT VAULT</span>
+        <span style={{ marginRight: "4rem" }}>/// NEURAL NET LINK ESTABLISHED</span>
+        <span style={{ marginRight: "4rem" }}>/// END-TO-END ENCRYPTION</span>
+        <span style={{ marginRight: "4rem" }}>/// ZERO TELEMETRY</span>
+        <span style={{ marginRight: "4rem" }}>/// MAXIMUM EFFICIENCY</span>
+      </motion.div>
+    </div>
+  );
+};
+
+const Typewriter = ({ text }: { text: string }) => {
+  const [displayed, setDisplayed] = useState("");
+  
+  useEffect(() => {
+    let i = 0;
+    const interval = setInterval(() => {
+      setDisplayed(text.slice(0, i));
+      i++;
+      if (i > text.length) clearInterval(interval);
+    }, 50);
+    return () => clearInterval(interval);
+  }, [text]);
+
+  return (
+    <span>
+      {displayed}
+      <motion.span
+        animate={{ opacity: [0, 1, 0] }}
+        transition={{ repeat: Infinity, duration: 0.8 }}
+      >
+        _
+      </motion.span>
+    </span>
+  );
+};
+
+export default function LandingHero() {
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", position: "relative", overflow: "hidden", width: "100%" }}>
+      
+      <motion.div 
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="prompt-card" 
+        style={{ maxWidth: "700px", width: "90%", margin: "0 auto", textAlign: "left", padding: "4rem", zIndex: 10, position: "relative", marginTop: "-5vh" }}
+      >
+        <h1 style={{ fontSize: "3.5rem", marginBottom: "1rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-2px", lineHeight: 1.1 }}>
+          <Typewriter text="WELCOME TO PROMPTA" />
+        </h1>
+        
+        <p style={{ fontSize: "1.2rem", marginBottom: "2rem", opacity: 0.9, lineHeight: 1.8 }}>
+          A hyper-futuristic vault for your AI prompts.
+          Store, organize, and execute your most critical interactions across ChatGPT, Gemini, and DeepSeek.
+        </p>
+        
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "3rem" }}>
+          {[
+            "Unlimited prompt storage limits",
+            "Direct file attachment support",
+            "One-click copy & execute routing",
+            "Secure, encrypted personal access"
+          ].map((item, i) => (
+            <motion.div 
+              key={i}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.8 + (i * 0.1) }}
+              style={{ display: "flex", alignItems: "center", gap: "1rem", fontWeight: "bold" }}
+            >
+              <span style={{ color: "var(--text-color)" }}>[+]</span>
+              <span>{item}</span>
+            </motion.div>
+          ))}
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.5 }}
+        >
+          <Link href="/login" style={{ textDecoration: "none", display: "block" }}>
+            <MagneticButton style={{ width: "100%", display: "block" }}>
+              <button style={{ fontSize: "1.2rem", padding: "1.5rem 2rem", width: "100%", fontWeight: 900, letterSpacing: "2px", textTransform: "uppercase" }}>
+                [ INITIALIZE LOGIN ]
+              </button>
+            </MagneticButton>
+          </Link>
+        </motion.div>
+      </motion.div>
+
+      <Marquee />
+    </div>
+  );
+}

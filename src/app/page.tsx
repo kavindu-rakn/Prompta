@@ -8,6 +8,7 @@ import MagneticButton from "@/components/MagneticButton";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
+import LandingHero from "@/components/LandingHero";
 
 import { Folder, Inbox } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -171,27 +172,8 @@ export default function Home() {
 
   if (!user) {
     return (
-      <main className="container" style={{ textAlign: "center", paddingTop: "5vh" }}>
-        <div className="prompt-card" style={{ maxWidth: "600px", margin: "0 auto", textAlign: "left", padding: "3rem" }}>
-          <h1 style={{ fontSize: "2.5rem", marginBottom: "1rem", fontWeight: 900 }}>WELCOME TO PROMPTA</h1>
-          <p style={{ fontSize: "1.1rem", marginBottom: "2rem", opacity: 0.9, lineHeight: 1.8 }}>
-            A hyper-futuristic vault for your AI prompts.
-            Store, organize, and execute your most critical interactions across ChatGPT, Gemini, and DeepSeek.
-          </p>
-          <ul style={{ listStyleType: "square", paddingLeft: "1.5rem", marginBottom: "3rem", fontSize: "1rem", opacity: 0.8, lineHeight: 1.8 }}>
-            <li>Unlimited prompt storage limits</li>
-            <li>Direct file attachment support</li>
-            <li>One-click copy & execute routing</li>
-            <li>Secure, encrypted personal access</li>
-          </ul>
-          <Link href="/login" style={{ textDecoration: "none", display: "block" }}>
-            <MagneticButton style={{ width: "100%", display: "block" }}>
-              <button style={{ fontSize: "1.1rem", padding: "1rem 2rem", width: "100%" }}>
-                [ JOIN PROMPTA ]
-              </button>
-            </MagneticButton>
-          </Link>
-        </div>
+      <main style={{ width: "100%", position: "relative" }}>
+        <LandingHero />
       </main>
     );
   }
