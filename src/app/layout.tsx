@@ -7,8 +7,11 @@ import Atmosphere from "@/components/Atmosphere";
 import { ToastProvider } from "@/components/ToastProvider";
 
 export const metadata: Metadata = {
-  title: "Prompta - Prompt Bank",
-  description: "A hyper-futuristic prompt bank.",
+  title: "Prompta",
+  description: "A hyper-futuristic prompt vault.",
+  openGraph: {
+    images: ["/promptalogo.png"],
+  },
 };
 
 export default function RootLayout({
