@@ -16,11 +16,12 @@ export default function LoginPage() {
   }, [user, loading, router]);
 
   if (loading || user) {
-    return <main className="container"><h2 style={{ borderBottom: "none" }}>[ REDIRECTING... ]</h2></main>;
+    return <main className="container" style={{ display: "flex", height: "calc(100vh - 85px)", justifyContent: "center", alignItems: "center" }}><h2 style={{ borderBottom: "none" }}>[ REDIRECTING... ]</h2></main>;
   }
 
   return (
-    <main className="container" style={{ textAlign: "center", paddingTop: "5vh" }}>
+    <main style={{ width: "100%", height: "calc(100vh - 85px)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", position: "relative", overflow: "hidden" }}>
+      <style dangerouslySetInnerHTML={{ __html: `body { overflow: hidden; }` }} />
       <AuthUI />
     </main>
   );

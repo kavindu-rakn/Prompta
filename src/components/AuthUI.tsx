@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "./ToastProvider";
+import { motion } from "framer-motion";
+import MagneticButton from "./MagneticButton";
 
 export default function AuthUI() {
   const [email, setEmail] = useState("");
@@ -34,30 +36,43 @@ export default function AuthUI() {
   };
 
   return (
-    <div className="prompt-card" style={{ padding: "3rem", maxWidth: "500px", margin: "0 auto", textAlign: "center" }}>
-      <h2 style={{ borderBottom: "none" }}>[ ACCESS TERMINAL ]</h2>
-      
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "2rem" }}>
-        <button onClick={() => handleOAuth('google')} style={{ width: "100%" }}>[ SIGN IN WITH GOOGLE ]</button>
+    <motion.div 
+      initial={{ opacity: 0, y: 50 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8, ease: "easeOut" }}
+      style={{ maxWidth: "850px", width: "95%", marginLeft: "auto", marginRight: "auto", marginTop: 0, marginBottom: 0, zIndex: 10, position: "relative" }}
+    >
+      <div className="prompt-card" style={{ textAlign: "left", padding: "2.5rem 3rem" }}>
+        <h2 style={{ fontSize: "3.5rem", borderBottom: "none", marginBottom: "2rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-2px", lineHeight: 1.1 }}>
+          [ ACCESS TERMINAL ]
+        </h2>
+        
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "2rem" }}>
+          <MagneticButton style={{ width: "100%", display: "block" }}>
+            <button onClick={() => handleOAuth('google')} style={{ width: "100%", fontSize: "1.2rem", padding: "1.5rem 2rem", fontWeight: 900, letterSpacing: "2px", textTransform: "uppercase" }}>[ SIGN IN WITH GOOGLE ]</button>
+          </MagneticButton>
+        </div>
+
+        <hr style={{ margin: "3rem 0", borderBottom: "2px solid var(--border-color)" }} />
+
+        <form onSubmit={handleMagicLink} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <p style={{ textAlign: "left", fontSize: "1.2rem", opacity: 0.9 }}>OR USE SECURE MAGIC LINK (EMAIL):</p>
+          <input 
+            type="email" 
+            className="input-field" 
+            placeholder="ENTER EMAIL ADDRESS..." 
+            style={{ marginBottom: 0, padding: "1.5rem", fontSize: "1.2rem" }}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <MagneticButton style={{ width: "100%", display: "block" }}>
+            <button type="submit" disabled={loading} style={{ width: "100%", fontSize: "1.2rem", padding: "1.5rem 2rem", fontWeight: 900, letterSpacing: "2px", textTransform: "uppercase", backgroundColor: "var(--text-color)", color: "var(--bg-color)" }}>
+              {loading ? "TRANSMITTING..." : "[ SEND MAGIC LINK ]"}
+            </button>
+          </MagneticButton>
+        </form>
       </div>
-
-      <hr style={{ margin: "2rem 0", borderBottom: "2px solid var(--border-color)" }} />
-
-      <form onSubmit={handleMagicLink} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        <p style={{ textAlign: "left", fontSize: "0.9rem", opacity: 0.8 }}>OR USE SECURE MAGIC LINK (EMAIL):</p>
-        <input 
-          type="email" 
-          className="input-field" 
-          placeholder="ENTER EMAIL ADDRESS..." 
-          style={{ marginBottom: 0 }}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? "TRANSMITTING..." : "[ SEND MAGIC LINK ]"}
-        </button>
-      </form>
-    </div>
+    </motion.div>
   );
 }
