@@ -43,7 +43,7 @@ To launch Prompta on your local terminal, follow these exact coordinates:
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/prompta.git
+git clone https://github.com/kavindu-rakn/Prompta.git
 cd prompta
 ```
 
