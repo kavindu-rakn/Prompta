@@ -14,16 +14,16 @@ const Marquee = () => {
         transition={{ repeat: Infinity, ease: "linear", duration: 20 }}
         style={{ display: "inline-block", fontSize: "clamp(0.8rem, 2vw, 1.2rem)", fontWeight: 900, letterSpacing: "clamp(2px, 0.5vw, 4px)" }}
       >
-        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>/// SECURE PROMPT VAULT</span>
-        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>/// POSTGRES LINK ESTABLISHED</span>
-        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>/// IN-TRANSIT TLS ENCRYPTION</span>
-        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>/// ZERO TELEMETRY</span>
-        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>/// MAXIMUM EFFICIENCY</span>
-        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>/// SECURE PROMPT VAULT</span>
-        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>/// POSTGRES LINK ESTABLISHED</span>
-        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>/// IN-TRANSIT TLS ENCRYPTION</span>
-        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>/// ZERO TELEMETRY</span>
-        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>/// MAXIMUM EFFICIENCY</span>
+        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>{"/// SECURE PROMPT VAULT"}</span>
+        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>{"/// POSTGRES LINK ESTABLISHED"}</span>
+        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>{"/// IN-TRANSIT TLS ENCRYPTION"}</span>
+        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>{"/// ZERO TELEMETRY"}</span>
+        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>{"/// MAXIMUM EFFICIENCY"}</span>
+        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>{"/// SECURE PROMPT VAULT"}</span>
+        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>{"/// POSTGRES LINK ESTABLISHED"}</span>
+        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>{"/// IN-TRANSIT TLS ENCRYPTION"}</span>
+        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>{"/// ZERO TELEMETRY"}</span>
+        <span style={{ marginRight: "clamp(1.5rem, 4vw, 4rem)" }}>{"/// MAXIMUM EFFICIENCY"}</span>
       </motion.div>
     </div>
   );
@@ -77,10 +77,11 @@ export default function LandingHero() {
         
         <div style={{ display: "flex", flexDirection: "column", gap: "clamp(0.5rem, 1.5vh, 1rem)", marginBottom: "clamp(1.5rem, 4vh, 3rem)" }}>
           {[
-            "Unlimited prompt length and storage limits",
-            "Direct multiple file attachment support",
-            "Paste to any LLM web page on one click",
-            "Share your prompts with anyone who has an email"
+            // Keep these honest. Every line here is a promise the app has to keep.
+            "Long-form prompts, up to 100,000 characters",
+            "Attach a reference file to any prompt",
+            "Copy and launch straight into ChatGPT, Claude, Gemini, DeepSeek or Grok",
+            "Send a prompt to another Prompta user's in-app inbox"
           ].map((item, i) => (
             <motion.div 
               key={i}

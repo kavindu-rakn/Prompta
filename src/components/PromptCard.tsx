@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Copy, Send, Trash2, X } from "lucide-react";
 import MagneticButton from "./MagneticButton";
 import { useToast } from "./ToastProvider";
+import { supabase } from "@/lib/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
 
 export type Prompt = {
@@ -11,7 +12,9 @@ export type Prompt = {
   title: string;
   content: string;
   created_at: string;
-  attachment_url?: string;
+  // Storage object path, NOT a URL. Attachments live in a private bucket and
+  // are reached through a short-lived signed URL minted on demand below.
+  attachment_path?: string;
   attachment_name?: string;
   folder_id?: string;
 };
@@ -27,6 +30,35 @@ interface PromptCardProps {
 export default function PromptCard({ prompt, onDelete, onSend, isInbox, senderEmail }: PromptCardProps) {
   const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [attachmentError, setAttachmentError] = useState(false);
+
+  // Attachments only render inside the expanded modal, so only sign on expand.
+  // The URL is deliberately short-lived; re-expanding mints a fresh one.
+  useEffect(() => {
+    if (!isExpanded || !prompt.attachment_path) return;
+
+    let cancelled = false;
+
+    supabase.storage
+      .from("prompt_attachments")
+      .createSignedUrl(prompt.attachment_path, 60)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !data?.signedUrl) {
+          console.error("Signed URL error:", error);
+          setSignedUrl(null);
+          setAttachmentError(true);
+          return;
+        }
+        setAttachmentError(false);
+        setSignedUrl(data.signedUrl);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isExpanded, prompt.attachment_path]);
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -50,7 +82,7 @@ export default function PromptCard({ prompt, onDelete, onSend, isInbox, senderEm
     if (onSend) onSend(prompt.id);
   };
 
-  const isImage = prompt.attachment_url && prompt.attachment_name?.match(/\.(jpeg|jpg|gif|png|webp)$/i);
+  const isImage = prompt.attachment_path && prompt.attachment_name?.match(/\.(jpeg|jpg|gif|png|webp)$/i);
 
   const cardContent = (isModal: boolean) => (
     <div className={`prompt-card ${isModal ? 'prompt-card-full' : 'prompt-card-collapsed'}`} onClick={!isModal ? () => setIsExpanded(true) : undefined} style={!isModal ? { marginBottom: 0 } : {}}>
@@ -66,15 +98,22 @@ export default function PromptCard({ prompt, onDelete, onSend, isInbox, senderEm
         </div>
       </div>
       
-      {isModal && prompt.attachment_url && (
+      {isModal && prompt.attachment_path && (
         <div style={{ padding: "0 1.5rem 1.5rem 1.5rem", borderTop: "2px solid var(--border-color)", paddingTop: "1.5rem" }}>
           <p style={{ marginBottom: "1rem", textTransform: "uppercase", letterSpacing: "1px" }}>
-            <strong>[ATTACHMENT]:</strong> <a href={prompt.attachment_url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-color)", textDecoration: "underline", textUnderlineOffset: "4px" }}>{prompt.attachment_name || "DOWNLOAD"}</a>
+            <strong>[ATTACHMENT]:</strong>{" "}
+            {attachmentError ? (
+              <span style={{ opacity: 0.7 }}>UNAVAILABLE</span>
+            ) : signedUrl ? (
+              <a href={signedUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-color)", textDecoration: "underline", textUnderlineOffset: "4px" }}>{prompt.attachment_name || "DOWNLOAD"}</a>
+            ) : (
+              <span style={{ opacity: 0.7 }}>SIGNING LINK...</span>
+            )}
           </p>
-          {isImage && (
+          {isImage && signedUrl && !attachmentError && (
             <div style={{ marginTop: "1rem", maxWidth: "100%", border: "2px solid var(--border-color)", padding: "0" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={prompt.attachment_url} alt="Attachment Preview" style={{ width: "100%", height: "auto", display: "block" }} />
+              <img src={signedUrl} alt="Attachment Preview" onError={() => setAttachmentError(true)} style={{ width: "100%", height: "auto", display: "block" }} />
             </div>
           )}
         </div>

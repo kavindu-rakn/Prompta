@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import Link from "next/link";
 import PromptCard, { Prompt } from "@/components/PromptCard";
 import PromptForm from "@/components/PromptForm";
 import MagneticButton from "@/components/MagneticButton";
@@ -38,40 +37,47 @@ function DashboardContent() {
   const [receiverEmail, setReceiverEmail] = useState("");
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [entryToDelete, setEntryToDelete] = useState<{ id: string, type: "prompt" | "inbox" } | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (user) {
-      fetchData();
+      fetchData(user.id, user.email ?? "");
     }
   }, [user]);
 
-  const fetchData = async () => {
+  const fetchData = async (userId: string, userEmail: string) => {
     setLoading(true);
-    
-    // Fetch Folders
-    const { data: folderData } = await supabase.from("folders").select("*").order("created_at");
-    if (folderData) setFolders(folderData);
-    
-    // Fetch Prompts (Only owned by the user)
-    const { data: promptData } = await supabase
-      .from("prompts")
-      .select("*")
-      .eq("user_id", user?.id || "")
-      .order("created_at", { ascending: false });
-    if (promptData) setPrompts(promptData);
-    
-    // Fetch Inbox (Only received by the user)
-    const { data: inboxData, error: inboxError } = await supabase
-      .from("prompt_shares")
-      .select(`id, sender_email, prompts (*)`)
-      .eq("receiver_email", user?.email || "")
-      .order("created_at", { ascending: false });
-      
-    if (inboxError) {
-      console.error("Inbox Error:", inboxError);
-    } else if (inboxData) {
-      setInbox(inboxData as unknown as Share[]);
+    setLoadError(false);
+
+    const [folderRes, promptRes, inboxRes] = await Promise.all([
+      supabase.from("folders").select("*").order("created_at"),
+      // Own prompts only. The SELECT policy also exposes prompts shared WITH
+      // this user; those belong in the inbox view, not the vault.
+      supabase
+        .from("prompts")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("prompt_shares")
+        .select(`id, sender_email, prompts (*)`)
+        .eq("receiver_email", userEmail.trim().toLowerCase())
+        .order("created_at", { ascending: false }),
+    ]);
+
+    // A failed fetch used to be discarded entirely, rendering as "NO ENTRIES
+    // FOUND" - indistinguishable from a genuinely empty vault. Say what
+    // actually happened instead.
+    const failure = folderRes.error || promptRes.error || inboxRes.error;
+    if (failure) {
+      console.error("Fetch error:", failure);
+      setLoadError(true);
+      toast("FAILED TO LOAD DATA", "error");
     }
+
+    if (folderRes.data) setFolders(folderRes.data);
+    if (promptRes.data) setPrompts(promptRes.data);
+    if (inboxRes.data) setInbox(inboxRes.data as unknown as Share[]);
 
     setLoading(false);
   };
@@ -82,14 +88,18 @@ function DashboardContent() {
     
     const { data, error } = await supabase
       .from("folders")
-      .insert([{ name: newFolderName }])
+      .insert([{ name: newFolderName.trim() }])
       .select();
-      
-    if (!error && data) {
-      setFolders([...folders, data[0]]);
-      setNewFolderName("");
-      setIsCreatingFolder(false);
+
+    if (error || !data?.length) {
+      console.error("Error creating folder:", error);
+      toast("FAILED TO CREATE DIRECTORY", "error");
+      return;
     }
+
+    setFolders([...folders, data[0]]);
+    setNewFolderName("");
+    setIsCreatingFolder(false);
   };
 
   const handleDeleteFolderClick = (id: string, e: React.MouseEvent) => {
@@ -98,19 +108,32 @@ function DashboardContent() {
   };
 
   const confirmDeleteFolder = async () => {
-    if (!folderToDelete) return;
-    await supabase.from("folders").delete().eq("id", folderToDelete);
+    if (!folderToDelete || !user) return;
+
+    const { data, error } = await supabase
+      .from("folders")
+      .delete()
+      .eq("id", folderToDelete)
+      .select();
+
+    if (error || !data?.length) {
+      console.error("Error deleting folder:", error);
+      toast("FAILED TO PURGE DIRECTORY", "error");
+      setFolderToDelete(null);
+      return;
+    }
+
     setFolders(folders.filter(f => f.id !== folderToDelete));
     if (activeFolderId === folderToDelete) setActiveFolderId(null);
-    fetchData(); // Refresh prompts to show them in NO FOLDER
+    fetchData(user.id, user.email ?? ""); // Refresh prompts to show them in NO FOLDER
     setFolderToDelete(null);
     toast("DIRECTORY PURGED", "success");
   };
 
-  const handleSavePrompt = async (title: string, content: string, attachment_url: string | null, attachment_name: string | null, folder_id: string | null) => {
+  const handleSavePrompt = async (title: string, content: string, attachment_path: string | null, attachment_name: string | null, folder_id: string | null) => {
     const { data, error } = await supabase
       .from("prompts")
-      .insert([{ title, content, attachment_url, attachment_name, folder_id }])
+      .insert([{ title, content, attachment_path, attachment_name, folder_id }])
       .select();
 
     if (error) {
@@ -133,15 +156,57 @@ function DashboardContent() {
 
   const confirmDeleteEntry = async () => {
     if (!entryToDelete) return;
+
     if (entryToDelete.type === "prompt") {
-      await supabase.from("prompts").delete().eq("id", entryToDelete.id);
+      const target = prompts.find((p) => p.id === entryToDelete.id);
+
+      // Remove the stored object BEFORE the row. There is no server-side
+      // cleanup, so deleting the row first orphans the file in the bucket
+      // permanently, with no remaining reference to find it by.
+      if (target?.attachment_path) {
+        const { error: storageError } = await supabase.storage
+          .from("prompt_attachments")
+          .remove([target.attachment_path]);
+        if (storageError) console.error("Attachment cleanup failed:", storageError);
+      }
+
+      const { data, error } = await supabase
+        .from("prompts")
+        .delete()
+        .eq("id", entryToDelete.id)
+        .select();
+
+      if (error || !data?.length) {
+        console.error("Error deleting prompt:", error);
+        toast("PURGE FAILED", "error");
+        setEntryToDelete(null);
+        return;
+      }
+
       setPrompts(prompts.filter((p) => p.id !== entryToDelete.id));
       toast("ENTRY PURGED", "success");
     } else {
-      await supabase.from("prompt_shares").delete().eq("id", entryToDelete.id);
+      const { data, error } = await supabase
+        .from("prompt_shares")
+        .delete()
+        .eq("id", entryToDelete.id)
+        .select();
+
+      // This previously reported success unconditionally. With no DELETE
+      // policy on prompt_shares, PostgREST matched zero rows and returned no
+      // error, so the item silently reappeared on the next refresh. Verify
+      // that a row actually went away before claiming it did.
+      if (error || !data?.length) {
+        console.error("Error deleting share:", error);
+        toast("PURGE FAILED", "error");
+        setEntryToDelete(null);
+        return;
+      }
+
       setInbox(inbox.filter((s) => s.id !== entryToDelete.id));
       toast("INBOX TRANSMISSION PURGED", "success");
     }
+
     setEntryToDelete(null);
   };
 
@@ -154,21 +219,30 @@ function DashboardContent() {
     e.preventDefault();
     if (!sendPromptId || !receiverEmail) return;
     
-    const { error } = await supabase
+    if (!user?.email) {
+      toast("SESSION EXPIRED - PLEASE SIGN IN AGAIN", "error");
+      return;
+    }
+
+    // Both sides are lowercased. Sharing matches the receiver against the JWT
+    // email as a plain string, so an uppercased address would create the row,
+    // report success, and never arrive.
+    const { data, error } = await supabase
       .from("prompt_shares")
-      .insert([{ 
-        prompt_id: sendPromptId, 
-        receiver_email: receiverEmail,
-        sender_email: user?.email || "unknown"
-      }]);
-      
-    if (error) {
+      .insert([{
+        prompt_id: sendPromptId,
+        receiver_email: receiverEmail.trim().toLowerCase(),
+        sender_email: user.email.trim().toLowerCase()
+      }])
+      .select();
+
+    if (error || !data?.length) {
       console.error(error);
       toast("FAILED TO SEND COMM-LINK", "error");
     } else {
       toast("PROMPT SENT SUCCESSFULLY!", "success");
     }
-    
+
     setSendPromptId(null);
   };
 
@@ -197,6 +271,8 @@ function DashboardContent() {
           <h2 style={{ marginBottom: "2rem" }}>[ INCOMING TRANSMISSIONS ]</h2>
           {loading ? (
             <p>SCANNING COMMS...</p>
+          ) : loadError ? (
+            <p style={{ opacity: 0.9, fontSize: "1.2rem", fontWeight: "bold", color: "#ff3333" }}>DATA LINK FAILURE. COULD NOT REACH THE SERVER.</p>
           ) : inbox.length === 0 ? (
             <p style={{ opacity: 0.7, fontSize: "1.2rem", fontWeight: "bold" }}>NO INCOMING TRANSMISSIONS.</p>
           ) : (
@@ -264,6 +340,8 @@ function DashboardContent() {
           
           {loading ? (
             <p>FETCHING DATA...</p>
+          ) : loadError ? (
+            <p style={{ opacity: 0.9, fontSize: "1.2rem", fontWeight: "bold", color: "#ff3333" }}>DATA LINK FAILURE. COULD NOT REACH THE SERVER.</p>
           ) : filteredPrompts.length === 0 ? (
             <p style={{ opacity: 0.7, fontSize: "1.2rem", fontWeight: "bold" }}>NO ENTRIES FOUND IN THIS DIRECTORY.</p>
           ) : (
