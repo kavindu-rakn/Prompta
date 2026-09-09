@@ -21,10 +21,10 @@ function NavbarContent() {
   return (
     <nav>
       <h1><Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>PROMPTA</Link></h1>
-      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+      <div className="nav-actions">
         {user ? (
           <>
-            <div style={{ display: "flex", gap: "1rem", marginRight: "1rem" }}>
+            <div className="nav-links">
               <Link href="/?view=vault" style={{ textDecoration: "none", color: "inherit", fontWeight: currentView === "vault" ? "900" : "normal", opacity: currentView === "vault" ? 1 : 0.5 }}>
                 [ VAULT ]
               </Link>

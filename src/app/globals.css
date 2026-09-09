@@ -5,6 +5,12 @@
   --subtle-gray: #f4f4f4;
   --hover-offset: 6px;
   --overlay-bg: rgba(255, 255, 255, 0.8);
+
+  /* Single source of truth for the nav height. Full-viewport pages subtract
+     this, so it must match the real rendered nav at every breakpoint - the nav
+     sets an explicit height rather than deriving it from padding + font-size,
+     so changing type sizes below cannot silently desynchronise the two. */
+  --nav-height: 96px;
   
   /* Grayscale Selection (Option 1) */
   --selection-bg: #cccccc;
@@ -104,26 +110,75 @@ body {
 nav {
   background-color: var(--bg-color);
   border-bottom: 2px solid var(--border-color);
-  padding: 1.5rem 2rem;
+  /* Explicit height, not padding-derived, so --nav-height stays truthful. */
+  height: var(--nav-height);
+  box-sizing: border-box;
+  padding: 0 clamp(1rem, 4vw, 2rem);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
   position: sticky;
   top: 0;
   z-index: 100;
   text-transform: uppercase;
   letter-spacing: 3px;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 nav h1 {
   font-size: 1.8rem;
   font-weight: 900;
+  white-space: nowrap;
 }
 
 nav span {
   font-size: 0.9rem;
   opacity: 0.7;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1rem;
+  margin-right: 1rem;
+  white-space: nowrap;
+}
+
+/* Below this width the signed-in nav (title + VAULT + INBOX + logout + theme)
+   needs ~547px and cannot fit on one line. Stack it into two rows instead of
+   letting the title and controls collide. */
+@media (max-width: 640px) {
+  :root {
+    --nav-height: 112px;
+  }
+
+  nav {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0 1rem;
+    letter-spacing: 1px;
+  }
+
+  nav h1 {
+    font-size: 1.4rem;
+  }
+
+  .nav-actions {
+    gap: 0.6rem;
+  }
+
+  .nav-links {
+    gap: 0.6rem;
+    margin-right: 0.4rem;
+    font-size: 0.85rem;
+  }
 }
 
 .container {
