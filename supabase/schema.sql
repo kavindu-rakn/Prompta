@@ -353,3 +353,150 @@ create index if not exists idx_folders_user_id         on public.folders(user_id
 create index if not exists idx_shares_receiver_email   on public.prompt_shares(receiver_email);
 create index if not exists idx_shares_sender_email     on public.prompt_shares(sender_email);
 create index if not exists idx_shares_prompt_id        on public.prompt_shares(prompt_id);
+
+
+-- -----------------------------------------------------------------------------
+-- 9. ABUSE LIMITS ON SHARING
+-- -----------------------------------------------------------------------------
+-- There is no server to rate limit at, so the limit lives in the database where
+-- it cannot be bypassed by calling PostgREST directly.
+
+-- A prompt can only be sent to a given address once. Stops the same recipient
+-- being spammed with the same prompt over and over, and makes the inbox sane.
+-- Existing duplicates are collapsed to the earliest row first, or the unique
+-- index below cannot be built.
+delete from public.prompt_shares s
+where s.id in (
+  select id from (
+    select id, row_number() over (
+      partition by prompt_id, receiver_email order by created_at, id
+    ) as rn
+    from public.prompt_shares
+  ) t
+  where t.rn > 1
+);
+
+create unique index if not exists uq_shares_prompt_receiver
+  on public.prompt_shares(prompt_id, receiver_email);
+
+-- Supports the counting queries in the trigger below.
+create index if not exists idx_shares_sender_created
+  on public.prompt_shares(sender_email, created_at desc);
+
+create or replace function public.enforce_share_rate_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  hourly int;
+  daily  int;
+begin
+  select count(*) into hourly
+  from public.prompt_shares
+  where sender_email = new.sender_email
+    and created_at > now() - interval '1 hour';
+
+  if hourly >= 20 then
+    raise exception 'SHARE_RATE_LIMIT_HOURLY'
+      using errcode = 'check_violation';
+  end if;
+
+  select count(*) into daily
+  from public.prompt_shares
+  where sender_email = new.sender_email
+    and created_at > now() - interval '24 hours';
+
+  if daily >= 100 then
+    raise exception 'SHARE_RATE_LIMIT_DAILY'
+      using errcode = 'check_violation';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_share_rate_limit on public.prompt_shares;
+create trigger trg_share_rate_limit
+before insert on public.prompt_shares
+for each row execute function public.enforce_share_rate_limit();
+
+
+-- -----------------------------------------------------------------------------
+-- 10. CLIENT ERROR LOG
+-- -----------------------------------------------------------------------------
+-- Errors previously went to console.error and died there, so a broken app was
+-- invisible. This is deliberately a plain table rather than a third-party
+-- service: no new dependency, no data leaving Supabase, and nothing new to
+-- declare in the privacy policy beyond what is already stored here.
+--
+-- It does NOT alert you. Read it from the Supabase dashboard, or see the
+-- upgrade note in README if you want paging.
+
+create table if not exists public.client_errors (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid references auth.users(id) on delete cascade default auth.uid(),
+  message     text not null,
+  source      text,
+  stack       text,
+  url         text,
+  user_agent  text,
+  created_at  timestamptz not null default now()
+);
+
+-- Bound every field so a runaway loop cannot write unbounded data.
+alter table public.client_errors drop constraint if exists client_errors_len;
+alter table public.client_errors add constraint client_errors_len check (
+  char_length(message) between 1 and 2000
+  and char_length(coalesce(source, ''))     <= 200
+  and char_length(coalesce(stack, ''))      <= 8000
+  and char_length(coalesce(url, ''))        <= 2000
+  and char_length(coalesce(user_agent, '')) <= 500
+);
+
+create index if not exists idx_client_errors_user_created
+  on public.client_errors(user_id, created_at desc);
+create index if not exists idx_client_errors_created
+  on public.client_errors(created_at desc);
+
+alter table public.client_errors enable row level security;
+
+drop policy if exists "Authenticated users can report errors" on public.client_errors;
+
+-- Insert-only, and only as yourself. There is deliberately NO select, update or
+-- delete policy: reports are readable from the dashboard (service role) only,
+-- so one user can never read another user's error text, which may quote their
+-- prompt content.
+create policy "Authenticated users can report errors"
+on public.client_errors for insert to authenticated
+with check (user_id = (select auth.uid()));
+
+-- An error inside a render loop could otherwise write thousands of rows.
+create or replace function public.enforce_error_log_rate_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  recent int;
+begin
+  select count(*) into recent
+  from public.client_errors
+  where user_id = new.user_id
+    and created_at > now() - interval '1 hour';
+
+  if recent >= 50 then
+    raise exception 'ERROR_LOG_RATE_LIMIT'
+      using errcode = 'check_violation';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_error_log_rate_limit on public.client_errors;
+create trigger trg_error_log_rate_limit
+before insert on public.client_errors
+for each row execute function public.enforce_error_log_rate_limit();

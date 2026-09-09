@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { logError } from "@/lib/errorLog";
 
 import { Save } from "lucide-react";
 import MagneticButton from "./MagneticButton";
@@ -86,7 +87,7 @@ export default function PromptForm({ folders, currentFolderId, onSave }: PromptF
         .upload(filePath, file, { contentType: file.type, upsert: false });
 
       if (uploadError) {
-        console.error("Upload error:", uploadError);
+        logError(uploadError, "attachmentUpload");
         toast("ERROR UPLOADING FILE!", "error");
         setUploading(false);
         return;

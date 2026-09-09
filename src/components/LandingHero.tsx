@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import MagneticButton from "./MagneticButton";
+import LegalLinks from "./LegalLinks";
 import { useEffect, useState } from "react";
 
 const Marquee = () => {
@@ -108,6 +109,9 @@ export default function LandingHero() {
               </button>
             </MagneticButton>
           </Link>
+          {/* Must stay on the signed-out page - Google checks for a reachable
+              privacy policy when verifying the OAuth app. */}
+          <LegalLinks style={{ marginTop: "clamp(0.75rem, 2vh, 1.25rem)", justifyContent: "center" }} />
         </motion.div>
         </div>
       </motion.div>

@@ -5,6 +5,7 @@ import { Copy, Send, Trash2, X } from "lucide-react";
 import MagneticButton from "./MagneticButton";
 import { useToast } from "./ToastProvider";
 import { supabase } from "@/lib/supabaseClient";
+import { logError } from "@/lib/errorLog";
 import { motion, AnimatePresence } from "framer-motion";
 
 export type Prompt = {
@@ -46,7 +47,7 @@ export default function PromptCard({ prompt, onDelete, onSend, isInbox, senderEm
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error || !data?.signedUrl) {
-          console.error("Signed URL error:", error);
+          logError(error, "createSignedUrl");
           setSignedUrl(null);
           setAttachmentError(true);
           return;

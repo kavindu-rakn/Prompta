@@ -6,11 +6,13 @@ import PromptForm from "@/components/PromptForm";
 import MagneticButton from "@/components/MagneticButton";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
+import { logError } from "@/lib/errorLog";
+import LegalLinks from "@/components/LegalLinks";
 import { useToast } from "@/components/ToastProvider";
 import LandingHero from "@/components/LandingHero";
 import { useSearchParams } from "next/navigation";
 
-import { Folder, Inbox, X, Plus } from "lucide-react";
+import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 type FolderType = { id: string; name: string };
@@ -39,16 +41,11 @@ function DashboardContent() {
   const [entryToDelete, setEntryToDelete] = useState<{ id: string, type: "prompt" | "inbox" } | null>(null);
   const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchData(user.id, user.email ?? "");
-    }
-  }, [user]);
-
+  // Deliberately does not flip `loading` on at the top: doing so synchronously
+  // from the mount effect below causes a cascading render. `loading` already
+  // starts true, and callers that re-fetch from an event handler set it
+  // themselves.
   const fetchData = async (userId: string, userEmail: string) => {
-    setLoading(true);
-    setLoadError(false);
-
     const [folderRes, promptRes, inboxRes] = await Promise.all([
       supabase.from("folders").select("*").order("created_at"),
       // Own prompts only. The SELECT policy also exposes prompts shared WITH
@@ -70,9 +67,11 @@ function DashboardContent() {
     // actually happened instead.
     const failure = folderRes.error || promptRes.error || inboxRes.error;
     if (failure) {
-      console.error("Fetch error:", failure);
+      logError(failure, "fetchData");
       setLoadError(true);
       toast("FAILED TO LOAD DATA", "error");
+    } else {
+      setLoadError(false);
     }
 
     if (folderRes.data) setFolders(folderRes.data);
@@ -81,6 +80,14 @@ function DashboardContent() {
 
     setLoading(false);
   };
+
+  // Declared after fetchData on purpose: referencing it from an effect above
+  // its own declaration is a temporal dead zone the linter rightly flags.
+  useEffect(() => {
+    if (user) {
+      fetchData(user.id, user.email ?? "");
+    }
+  }, [user]);
 
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +99,7 @@ function DashboardContent() {
       .select();
 
     if (error || !data?.length) {
-      console.error("Error creating folder:", error);
+      logError(error, "handleCreateFolder");
       toast("FAILED TO CREATE DIRECTORY", "error");
       return;
     }
@@ -117,7 +124,7 @@ function DashboardContent() {
       .select();
 
     if (error || !data?.length) {
-      console.error("Error deleting folder:", error);
+      logError(error, "confirmDeleteFolder");
       toast("FAILED TO PURGE DIRECTORY", "error");
       setFolderToDelete(null);
       return;
@@ -125,6 +132,7 @@ function DashboardContent() {
 
     setFolders(folders.filter(f => f.id !== folderToDelete));
     if (activeFolderId === folderToDelete) setActiveFolderId(null);
+    setLoading(true); // Safe here - this is an event handler, not an effect.
     fetchData(user.id, user.email ?? ""); // Refresh prompts to show them in NO FOLDER
     setFolderToDelete(null);
     toast("DIRECTORY PURGED", "success");
@@ -137,7 +145,7 @@ function DashboardContent() {
       .select();
 
     if (error) {
-      console.error("Error saving prompt:", error);
+      logError(error, "handleSavePrompt");
       toast("ERROR SAVING ENTRY", "error");
     } else if (data) {
       setPrompts([data[0], ...prompts]);
@@ -167,7 +175,7 @@ function DashboardContent() {
         const { error: storageError } = await supabase.storage
           .from("prompt_attachments")
           .remove([target.attachment_path]);
-        if (storageError) console.error("Attachment cleanup failed:", storageError);
+        if (storageError) logError(storageError, "attachmentCleanup");
       }
 
       const { data, error } = await supabase
@@ -177,7 +185,7 @@ function DashboardContent() {
         .select();
 
       if (error || !data?.length) {
-        console.error("Error deleting prompt:", error);
+        logError(error, "deletePrompt");
         toast("PURGE FAILED", "error");
         setEntryToDelete(null);
         return;
@@ -197,7 +205,7 @@ function DashboardContent() {
       // error, so the item silently reappeared on the next refresh. Verify
       // that a row actually went away before claiming it did.
       if (error || !data?.length) {
-        console.error("Error deleting share:", error);
+        logError(error, "deleteShare");
         toast("PURGE FAILED", "error");
         setEntryToDelete(null);
         return;
@@ -237,8 +245,21 @@ function DashboardContent() {
       .select();
 
     if (error || !data?.length) {
-      console.error(error);
-      toast("FAILED TO SEND COMM-LINK", "error");
+      logError(error ?? new Error("share insert returned no rows"), "confirmSendPrompt");
+
+      // The database enforces these, so the messages have to be decoded here.
+      const message = error?.message ?? "";
+      if (error?.code === "23505") {
+        toast("ALREADY SENT TO THIS RECIPIENT", "error");
+      } else if (message.includes("SHARE_RATE_LIMIT_HOURLY")) {
+        toast("RATE LIMIT: 20 TRANSMISSIONS PER HOUR", "error");
+      } else if (message.includes("SHARE_RATE_LIMIT_DAILY")) {
+        toast("RATE LIMIT: 100 TRANSMISSIONS PER DAY", "error");
+      } else if (error?.code === "42501") {
+        toast("NOT AUTHORIZED TO SEND THIS ENTRY", "error");
+      } else {
+        toast("FAILED TO SEND COMM-LINK", "error");
+      }
     } else {
       toast("PROMPT SENT SUCCESSFULLY!", "success");
     }
@@ -252,7 +273,7 @@ function DashboardContent() {
 
   if (!user) {
     return (
-      <main style={{ width: "100%", height: "calc(100vh - 85px)", position: "relative" }}>
+      <main style={{ width: "100%", height: "calc(100vh - var(--nav-height))", position: "relative" }}>
         <style dangerouslySetInnerHTML={{ __html: `body { overflow: hidden; }` }} />
         <LandingHero />
       </main>
@@ -460,6 +481,8 @@ function DashboardContent() {
           </div>
         )}
       </AnimatePresence>
+
+      <LegalLinks style={{ marginTop: "5rem", paddingTop: "2rem", borderTop: "2px solid var(--border-color)" }} />
     </main>
   );
 }

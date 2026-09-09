@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import BootSequence from "@/components/BootSequence";
 import Atmosphere from "@/components/Atmosphere";
 import { ToastProvider } from "@/components/ToastProvider";
+import ErrorReporter from "@/components/ErrorReporter";
 
 export const metadata: Metadata = {
   title: "Prompta",
@@ -39,6 +40,7 @@ export default function RootLayout({
         <script src="/theme.js" />
       </head>
       <body>
+        <ErrorReporter />
         <BootSequence />
         <Atmosphere />
         <ToastProvider>
