@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { logError } from "@/lib/errorLog";
 
@@ -8,6 +8,7 @@ import { Save } from "lucide-react";
 import MagneticButton from "./MagneticButton";
 import { useToast } from "./ToastProvider";
 import { useAuth } from "./AuthProvider";
+import type { Prompt } from "./PromptCard";
 
 // Must stay in sync with the bucket config in supabase/schema.sql. The bucket
 // is the real gate - these checks exist only to fail fast with a clear message
@@ -27,20 +28,76 @@ const ALLOWED_MIME = [
 ];
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
+// Some browsers report an empty File.type for text formats the operating system
+// has no mapping for. Fall back to the extension for those, and only those.
+const MIME_BY_EXTENSION: Record<string, string> = {
+  md: "text/markdown",
+  markdown: "text/markdown",
+  txt: "text/plain",
+  json: "application/json",
+};
+
+const resolveMime = (file: File): string => {
+  if (file.type) return file.type;
+  const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
+  return MIME_BY_EXTENSION[ext] ?? "";
+};
+
+/**
+ * The attachment is described as a change, not a value, so an edit that never
+ * touches the file cannot accidentally clear it.
+ */
+export type AttachmentChange =
+  | { kind: "unchanged" }
+  | { kind: "removed" }
+  | { kind: "uploaded"; path: string; name: string };
+
+export type PromptDraft = {
+  title: string;
+  content: string;
+  folderId: string | null;
+  attachment: AttachmentChange;
+};
+
 interface PromptFormProps {
-  folders: { id: string, name: string }[];
+  folders: { id: string; name: string }[];
   currentFolderId: string | null;
-  onSave: (title: string, content: string, attachmentPath: string | null, attachmentName: string | null, folderId: string | null) => void;
+  /** The prompt being edited. Omit to create a new one. */
+  initialPrompt?: Prompt;
+  /**
+   * Resolves true once the prompt is saved. On false, the form keeps everything
+   * the user entered so they can retry instead of retyping it.
+   */
+  onSave: (draft: PromptDraft) => Promise<boolean>;
 }
 
-export default function PromptForm({ folders, currentFolderId, onSave }: PromptFormProps) {
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  marginBottom: "0.4rem",
+  fontSize: "0.8rem",
+  fontWeight: "bold",
+  letterSpacing: "2px",
+  textTransform: "uppercase",
+};
+
+export default function PromptForm({ folders, currentFolderId, initialPrompt, onSave }: PromptFormProps) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [folderId, setFolderId] = useState<string>(currentFolderId || "");
+  const id = useId();
+
+  const isEditing = initialPrompt !== undefined;
+  const existingAttachment = initialPrompt?.attachment_path
+    ? initialPrompt.attachment_name || "ATTACHMENT"
+    : null;
+
+  const [title, setTitle] = useState(initialPrompt?.title ?? "");
+  const [content, setContent] = useState(initialPrompt?.content ?? "");
+  const [folderId, setFolderId] = useState<string>(
+    isEditing ? initialPrompt.folder_id ?? "" : currentFolderId ?? ""
+  );
   const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [removeExisting, setRemoveExisting] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = e.target.files?.[0] || null;
@@ -54,7 +111,7 @@ export default function PromptForm({ folders, currentFolderId, onSave }: PromptF
       setFile(null);
       return;
     }
-    if (!ALLOWED_MIME.includes(picked.type)) {
+    if (!ALLOWED_MIME.includes(resolveMime(picked))) {
       toast("UNSUPPORTED FILE TYPE", "error");
       e.target.value = "";
       setFile(null);
@@ -65,15 +122,20 @@ export default function PromptForm({ folders, currentFolderId, onSave }: PromptF
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim()) return;
+    if (saving) return;
+    // `required` blocks empty fields; this catches whitespace-only ones.
+    if (!title.trim() || !content.trim()) {
+      toast("TITLE AND CONTENT ARE REQUIRED", "error");
+      return;
+    }
     if (!user) {
       toast("SESSION EXPIRED - PLEASE SIGN IN AGAIN", "error");
       return;
     }
 
-    setUploading(true);
-    let attachmentPath = null;
-    let attachmentName = null;
+    setSaving(true);
+
+    let attachment: AttachmentChange = removeExisting ? { kind: "removed" } : { kind: "unchanged" };
 
     if (file) {
       // Scoped to the owner folder so the storage RLS policies can enforce
@@ -83,54 +145,80 @@ export default function PromptForm({ folders, currentFolderId, onSave }: PromptF
       const filePath = `${user.id}/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('prompt_attachments')
-        .upload(filePath, file, { contentType: file.type, upsert: false });
+        .from("prompt_attachments")
+        .upload(filePath, file, { contentType: resolveMime(file), upsert: false });
 
       if (uploadError) {
         logError(uploadError, "attachmentUpload");
         toast("ERROR UPLOADING FILE!", "error");
-        setUploading(false);
+        setSaving(false);
         return;
       }
 
       // Store the object path, never a public URL. Readers mint a short-lived
       // signed URL at render time instead.
-      attachmentPath = filePath;
-      attachmentName = file.name;
+      attachment = { kind: "uploaded", path: filePath, name: file.name };
     }
 
-    onSave(title, content, attachmentPath, attachmentName, folderId === "" ? null : folderId);
+    const saved = await onSave({
+      title,
+      content,
+      folderId: folderId === "" ? null : folderId,
+      attachment,
+    });
 
-    setTitle("");
-    setContent("");
-    setFile(null);
-    const fileInput = document.getElementById("file-upload") as HTMLInputElement;
-    if (fileInput) fileInput.value = "";
-
-    setUploading(false);
+    if (!saved) {
+      // The file this attempt uploaded is now referenced by nothing. Remove it,
+      // or every failed save leaves a permanent orphan in the bucket. A retry
+      // uploads it again under a fresh name.
+      if (attachment.kind === "uploaded") {
+        const { error: cleanupError } = await supabase.storage
+          .from("prompt_attachments")
+          .remove([attachment.path]);
+        if (cleanupError) logError(cleanupError, "attachmentCleanup");
+      }
+      // Everything the user entered is still in state, so they can simply retry.
+      setSaving(false);
+    }
+    // On success the parent closes the form, so there is nothing to reset.
   };
+
+  const fileHintId = `${id}-file-hint`;
 
   return (
     <form onSubmit={handleSubmit} className="prompt-card" style={{ padding: "2.5rem" }}>
-      <h3>[ INITIALIZE NEW ENTRY ]</h3>
+      <h3>{isEditing ? "[ EDIT ENTRY ]" : "[ INITIALIZE NEW ENTRY ]"}</h3>
 
+      {isEditing && (
+        <p style={{ marginBottom: "1.5rem", fontSize: "0.85rem", opacity: 0.7, letterSpacing: "1px" }}>
+          EDITS ARE ALSO VISIBLE TO ANYONE YOU HAVE SENT THIS ENTRY TO.
+        </p>
+      )}
+
+      <label htmlFor={`${id}-title`} style={labelStyle}>Title</label>
       <input
+        id={`${id}-title`}
+        name="title"
         type="text"
         className="input-field"
         placeholder="ENTER TITLE..."
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         maxLength={200}
-        disabled={uploading}
-        style={{ marginBottom: "1rem", padding: "1rem" }}
+        required
+        disabled={saving}
+        style={{ marginBottom: "1.25rem", padding: "1rem" }}
       />
 
+      <label htmlFor={`${id}-folder`} style={labelStyle}>Folder</label>
       <select
+        id={`${id}-folder`}
+        name="folder"
         className="input-field"
         value={folderId}
         onChange={(e) => setFolderId(e.target.value)}
-        disabled={uploading}
-        style={{ cursor: "pointer", marginBottom: "1rem", padding: "1rem" }}
+        disabled={saving}
+        style={{ cursor: "pointer", marginBottom: "1.25rem", padding: "1rem" }}
       >
         <option value="">[ NO FOLDER ]</option>
         {folders.map(f => (
@@ -138,31 +226,70 @@ export default function PromptForm({ folders, currentFolderId, onSave }: PromptF
         ))}
       </select>
 
+      <label htmlFor={`${id}-content`} style={labelStyle}>Prompt</label>
       <textarea
+        id={`${id}-content`}
+        name="content"
         className="input-field"
         placeholder="INPUT PROMPT DATA..."
-        rows={5}
+        rows={isEditing ? 10 : 5}
         value={content}
         onChange={(e) => setContent(e.target.value)}
         maxLength={100000}
-        disabled={uploading}
-        style={{ marginBottom: "1rem", padding: "1rem" }}
+        required
+        disabled={saving}
+        style={{ marginBottom: "1.25rem", padding: "1rem" }}
       ></textarea>
 
-      <div style={{ marginBottom: "1rem" }}>
-        <input
-          id="file-upload"
-          type="file"
-          accept={ALLOWED_MIME.join(",")}
-          onChange={handleFileChange}
-          disabled={uploading}
-          style={{ padding: "0.8rem" }}
-        />
-      </div>
+      {existingAttachment && (
+        <div style={{ marginBottom: "1rem", padding: "1rem", border: "2px dashed var(--border-color)" }}>
+          <p style={{ marginBottom: "0.75rem", textTransform: "uppercase", letterSpacing: "1px", overflowWrap: "anywhere" }}>
+            <strong>CURRENT FILE:</strong> {existingAttachment}
+            {file ? " - WILL BE REPLACED" : removeExisting ? " - WILL BE REMOVED" : ""}
+          </p>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", cursor: "pointer", fontWeight: "bold", letterSpacing: "1px" }}>
+            <input
+              type="checkbox"
+              name="remove_attachment"
+              checked={removeExisting}
+              onChange={(e) => setRemoveExisting(e.target.checked)}
+              // A chosen replacement already supersedes the current file.
+              disabled={saving || file !== null}
+            />
+            REMOVE CURRENT FILE
+          </label>
+        </div>
+      )}
+
+      <label htmlFor={`${id}-file`} style={labelStyle}>
+        {existingAttachment ? "Replace file (optional)" : "Attach file (optional)"}
+      </label>
+      <input
+        id={`${id}-file`}
+        name="attachment"
+        type="file"
+        accept={ALLOWED_MIME.join(",")}
+        onChange={handleFileChange}
+        disabled={saving}
+        aria-describedby={fileHintId}
+        style={{ padding: "0.8rem" }}
+      />
+      <p id={fileHintId} style={{ marginTop: "0.4rem", marginBottom: "1.5rem", fontSize: "0.75rem", opacity: 0.6, letterSpacing: "1px" }}>
+        PNG, JPEG, GIF, WEBP, PDF, TXT, MD OR JSON. UP TO 10 MB.
+      </p>
 
       <MagneticButton style={{ width: "100%", display: "block" }}>
-        <button type="submit" disabled={uploading} style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "center", padding: "0.8rem" }} title="Save Entry">
-          {uploading ? "TRANSMITTING..." : <Save size={20} />}
+        <button
+          type="submit"
+          disabled={saving}
+          style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "center", gap: "0.75rem", padding: "0.8rem", fontWeight: "bold", letterSpacing: "2px" }}
+        >
+          {saving ? "TRANSMITTING..." : (
+            <>
+              <Save size={20} aria-hidden="true" />
+              {isEditing ? "[ SAVE CHANGES ]" : "[ SAVE ENTRY ]"}
+            </>
+          )}
         </button>
       </MagneticButton>
     </form>

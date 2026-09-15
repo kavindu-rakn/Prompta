@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Copy, Send, Trash2, X } from "lucide-react";
+import { Copy, Pencil, Send, Trash2, X } from "lucide-react";
 import MagneticButton from "./MagneticButton";
 import { useToast } from "./ToastProvider";
 import { supabase } from "@/lib/supabaseClient";
@@ -24,36 +24,43 @@ interface PromptCardProps {
   prompt: Prompt;
   onDelete?: (id: string) => void;
   onSend?: (id: string) => void;
+  onEdit?: (prompt: Prompt) => void;
   isInbox?: boolean;
   senderEmail?: string;
 }
 
-export default function PromptCard({ prompt, onDelete, onSend, isInbox, senderEmail }: PromptCardProps) {
+export default function PromptCard({ prompt, onDelete, onSend, onEdit, isInbox, senderEmail }: PromptCardProps) {
   const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
-  const [attachmentError, setAttachmentError] = useState(false);
+
+  // The signed link is remembered together with the path it was minted for.
+  // Editing can swap the attachment, and a link that is not tied to its path
+  // would briefly point the reopened card at the old, already-deleted file.
+  // A null url records that signing or loading failed for that path.
+  const [attachmentLink, setAttachmentLink] = useState<{ path: string; url: string | null } | null>(null);
+  const currentLink = attachmentLink?.path === prompt.attachment_path ? attachmentLink : null;
+  const signedUrl = currentLink?.url ?? null;
+  const attachmentError = currentLink !== null && currentLink.url === null;
 
   // Attachments only render inside the expanded modal, so only sign on expand.
   // The URL is deliberately short-lived; re-expanding mints a fresh one.
   useEffect(() => {
-    if (!isExpanded || !prompt.attachment_path) return;
+    const path = prompt.attachment_path;
+    if (!isExpanded || !path) return;
 
     let cancelled = false;
 
     supabase.storage
       .from("prompt_attachments")
-      .createSignedUrl(prompt.attachment_path, 60)
+      .createSignedUrl(path, 60)
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error || !data?.signedUrl) {
           logError(error, "createSignedUrl");
-          setSignedUrl(null);
-          setAttachmentError(true);
+          setAttachmentLink({ path, url: null });
           return;
         }
-        setAttachmentError(false);
-        setSignedUrl(data.signedUrl);
+        setAttachmentLink({ path, url: data.signedUrl });
       });
 
     return () => {
@@ -81,6 +88,12 @@ export default function PromptCard({ prompt, onDelete, onSend, isInbox, senderEm
   const handleSend = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onSend) onSend(prompt.id);
+  };
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsExpanded(false);
+    if (onEdit) onEdit(prompt);
   };
 
   const isImage = prompt.attachment_path && prompt.attachment_name?.match(/\.(jpeg|jpg|gif|png|webp)$/i);
@@ -114,7 +127,7 @@ export default function PromptCard({ prompt, onDelete, onSend, isInbox, senderEm
           {isImage && signedUrl && !attachmentError && (
             <div style={{ marginTop: "1rem", maxWidth: "100%", border: "2px solid var(--border-color)", padding: "0" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={signedUrl} alt="Attachment Preview" onError={() => setAttachmentError(true)} style={{ width: "100%", height: "auto", display: "block" }} />
+              <img src={signedUrl} alt="Attachment Preview" onError={() => prompt.attachment_path && setAttachmentLink({ path: prompt.attachment_path, url: null })} style={{ width: "100%", height: "auto", display: "block" }} />
             </div>
           )}
         </div>
@@ -129,8 +142,16 @@ export default function PromptCard({ prompt, onDelete, onSend, isInbox, senderEm
           <MagneticButton><button onClick={(e) => handleAIAction(e, "https://claude.ai/")} title="Claude" style={{ padding: "0.6rem", display: "flex", alignItems: "center" }}><img src="/ai-icons/claude.svg" alt="Claude" className="ai-icon" /></button></MagneticButton>
           <MagneticButton><button onClick={(e) => handleAIAction(e, "https://grok.com/")} title="Grok" style={{ padding: "0.6rem", display: "flex", alignItems: "center" }}><img src="/ai-icons/grok.svg" alt="Grok" className="ai-icon" /></button></MagneticButton>
           
-          {!isInbox && onSend && (
+          {!isInbox && onEdit && (
             <MagneticButton style={{ marginLeft: "auto" }}>
+              <button onClick={handleEdit} title="Edit Entry" aria-label="Edit entry" style={{ padding: "0.6rem", display: "flex", alignItems: "center" }}>
+                <Pencil size={18} aria-hidden="true" />
+              </button>
+            </MagneticButton>
+          )}
+
+          {!isInbox && onSend && (
+            <MagneticButton style={onEdit ? undefined : { marginLeft: "auto" }}>
               <button onClick={handleSend} title="Send Via Comm-Link" style={{ padding: "0.6rem", display: "flex", alignItems: "center", backgroundColor: "var(--text-color)", color: "var(--bg-color)" }}>
                 <Send size={18} />
               </button>

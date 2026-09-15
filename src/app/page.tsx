@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import PromptCard, { Prompt } from "@/components/PromptCard";
-import PromptForm from "@/components/PromptForm";
+import PromptForm, { type PromptDraft } from "@/components/PromptForm";
 import MagneticButton from "@/components/MagneticButton";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
@@ -34,7 +34,8 @@ function DashboardContent() {
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
-  const [isWritingPrompt, setIsWritingPrompt] = useState(false);
+  // One state for the prompt editor, so "creating" and "editing" can never both be open.
+  const [editor, setEditor] = useState<{ mode: "create" } | { mode: "edit"; prompt: Prompt } | null>(null);
   const [sendPromptId, setSendPromptId] = useState<string | null>(null);
   const [receiverEmail, setReceiverEmail] = useState("");
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
@@ -138,20 +139,77 @@ function DashboardContent() {
     toast("DIRECTORY PURGED", "success");
   };
 
-  const handleSavePrompt = async (title: string, content: string, attachment_path: string | null, attachment_name: string | null, folder_id: string | null) => {
+  // Both save handlers resolve false on failure rather than throwing, so the
+  // form knows to keep what the user entered and discard any file it uploaded.
+
+  const handleCreatePrompt = async (draft: PromptDraft): Promise<boolean> => {
+    const upload = draft.attachment.kind === "uploaded" ? draft.attachment : null;
+
     const { data, error } = await supabase
       .from("prompts")
-      .insert([{ title, content, attachment_path, attachment_name, folder_id }])
+      .insert([{
+        title: draft.title,
+        content: draft.content,
+        folder_id: draft.folderId,
+        attachment_path: upload?.path ?? null,
+        attachment_name: upload?.name ?? null,
+      }])
       .select();
 
-    if (error) {
-      logError(error, "handleSavePrompt");
+    if (error || !data?.length) {
+      logError(error ?? new Error("insert returned no rows"), "handleCreatePrompt");
       toast("ERROR SAVING ENTRY", "error");
-    } else if (data) {
-      setPrompts([data[0], ...prompts]);
-      setIsWritingPrompt(false);
-      toast("ENTRY SECURED", "success");
+      return false;
     }
+
+    setPrompts((current) => [data[0], ...current]);
+    setEditor(null);
+    toast("ENTRY SECURED", "success");
+    return true;
+  };
+
+  const handleUpdatePrompt = async (original: Prompt, draft: PromptDraft): Promise<boolean> => {
+    const changes: Record<string, string | null> = {
+      title: draft.title,
+      content: draft.content,
+      folder_id: draft.folderId,
+    };
+    // An "unchanged" attachment is deliberately left out of the update entirely.
+    if (draft.attachment.kind === "uploaded") {
+      changes.attachment_path = draft.attachment.path;
+      changes.attachment_name = draft.attachment.name;
+    } else if (draft.attachment.kind === "removed") {
+      changes.attachment_path = null;
+      changes.attachment_name = null;
+    }
+
+    const { data, error } = await supabase
+      .from("prompts")
+      .update(changes)
+      .eq("id", original.id)
+      .select();
+
+    // RLS turns an unauthorised update into zero rows with no error, which
+    // would otherwise be reported as a successful save.
+    if (error || !data?.length) {
+      logError(error ?? new Error("update matched no rows"), "handleUpdatePrompt");
+      toast("ERROR SAVING CHANGES", "error");
+      return false;
+    }
+
+    // Only now is the old file unreferenced. Deleting it before the update
+    // succeeded would leave a failed save pointing at a file that no longer exists.
+    if (draft.attachment.kind !== "unchanged" && original.attachment_path) {
+      const { error: cleanupError } = await supabase.storage
+        .from("prompt_attachments")
+        .remove([original.attachment_path]);
+      if (cleanupError) logError(cleanupError, "attachmentCleanup");
+    }
+
+    setPrompts((current) => current.map((p) => (p.id === original.id ? data[0] : p)));
+    setEditor(null);
+    toast("CHANGES SECURED", "success");
+    return true;
   };
 
   const handleDeletePromptClick = (id: string) => {
@@ -314,7 +372,7 @@ function DashboardContent() {
         <section>
           <MagneticButton style={{ width: "100%", marginBottom: "3rem", display: "block" }}>
             <button 
-              onClick={() => setIsWritingPrompt(true)}
+              onClick={() => setEditor({ mode: "create" })}
               style={{ width: "100%", padding: "1.5rem", fontSize: "1.2rem", backgroundColor: "var(--text-color)", color: "var(--bg-color)" }}
             >
               [ + INITIATE NEW ENTRY ]
@@ -368,7 +426,13 @@ function DashboardContent() {
           ) : (
             <div className="prompt-grid">
               {filteredPrompts.map((prompt) => (
-                <PromptCard key={prompt.id} prompt={prompt} onDelete={handleDeletePromptClick} onSend={handleSendPromptClick} />
+                <PromptCard
+                  key={prompt.id}
+                  prompt={prompt}
+                  onDelete={handleDeletePromptClick}
+                  onSend={handleSendPromptClick}
+                  onEdit={(p) => setEditor({ mode: "edit", prompt: p })}
+                />
               ))}
             </div>
           )}
@@ -377,21 +441,32 @@ function DashboardContent() {
 
       {/* MODALS */}
       <AnimatePresence>
-        {isWritingPrompt && (
+        {editor && (
           <div style={{ position: "fixed", inset: 0, zIndex: 10002, display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "var(--overlay-bg)", backdropFilter: "blur(12px)", overflowY: "auto", padding: "2rem" }}>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               style={{ width: "100%", maxWidth: "1000px", position: "relative" }}
             >
-              <button 
-                onClick={() => setIsWritingPrompt(false)}
+              <button
+                onClick={() => setEditor(null)}
                 style={{ position: "absolute", top: "-3rem", right: "0", background: "none", border: "none", color: "var(--border-color)", fontSize: "1.2rem", padding: "0", display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontWeight: "bold" }}
               >
-                [ ABORT ENTRY ] <X size={24} />
+                {editor.mode === "edit" ? "[ ABORT EDIT ]" : "[ ABORT ENTRY ]"} <X size={24} />
               </button>
-              <PromptForm folders={folders} currentFolderId={activeFolderId} onSave={handleSavePrompt} />
+              {/* Keyed so switching between prompts remounts the form with fresh values. */}
+              <PromptForm
+                key={editor.mode === "edit" ? editor.prompt.id : "new"}
+                folders={folders}
+                currentFolderId={activeFolderId}
+                initialPrompt={editor.mode === "edit" ? editor.prompt : undefined}
+                onSave={(draft) =>
+                  editor.mode === "edit"
+                    ? handleUpdatePrompt(editor.prompt, draft)
+                    : handleCreatePrompt(draft)
+                }
+              />
             </motion.div>
           </div>
         )}
