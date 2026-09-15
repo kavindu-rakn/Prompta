@@ -26,7 +26,11 @@
 --          blocked. Do not deploy.
 --   ERROR  The check hit an unexpected error, so it proves nothing either way.
 --          An attack only counts as blocked if RLS itself blocked it - never
---          because something unrelated happened to break.
+--          because something unrelated happened to break. RLS rejections are
+--          recognised by their message, because RLS and a plain missing
+--          privilege both raise the same SQLSTATE (42501). The one deliberate
+--          exception is anonymous access, where being blocked for either reason
+--          is the correct outcome.
 --   SKIP   The check could not run in this environment. The reason is given.
 --
 -- Positive checks ("B can read their own prompt") are deliberately mixed in
@@ -85,6 +89,7 @@ declare
   storage_skip_reason text := 'not attempted';
   b_shared_own        boolean := false;
   b_filed_own         boolean := false;
+  b_uploaded_own      boolean := false;
   b_logged_error      boolean := false;
 begin
   -- ===========================================================================
@@ -185,7 +190,7 @@ begin
     exception
       when insufficient_privilege then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
-          'result', 'PASS', 'detail', 'rejected');
+          'result', 'PASS', 'detail', sqlerrm);
       when others then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
           'result', 'ERROR', 'detail', format('unexpected %s: %s', sqlstate, sqlerrm));
@@ -270,7 +275,8 @@ begin
     exception
       when insufficient_privilege then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
-          'result', 'PASS', 'detail', 'rejected by RLS');
+          'result', case when sqlerrm ilike '%row-level security%' then 'PASS' else 'ERROR' end,
+          'detail', sqlerrm);
       when others then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
           'result', 'ERROR', 'detail', format('unexpected %s: %s', sqlstate, sqlerrm));
@@ -295,7 +301,8 @@ begin
     exception
       when insufficient_privilege then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
-          'result', 'PASS', 'detail', 'rejected by RLS');
+          'result', case when sqlerrm ilike '%row-level security%' then 'PASS' else 'ERROR' end,
+          'detail', sqlerrm);
       when others then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
           'result', 'ERROR', 'detail', format('unexpected %s: %s', sqlstate, sqlerrm));
@@ -414,7 +421,8 @@ begin
       exception
         when insufficient_privilege then
           i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
-            'result', 'PASS', 'detail', 'rejected by RLS');
+            'result', case when sqlerrm ilike '%row-level security%' then 'PASS' else 'ERROR' end,
+          'detail', sqlerrm);
         when others then
           i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
             'result', 'ERROR', 'detail', format('unexpected %s: %s', sqlstate, sqlerrm));
@@ -424,12 +432,23 @@ begin
       begin
         insert into storage.objects (bucket_id, name)
         values ('prompt_attachments', user_b::text || '/rls-test.png');
+        b_uploaded_own := true;
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
           'result', 'PASS', 'detail', 'upload accepted');
       exception when others then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
           'result', 'FAIL', 'detail', format('%s: %s', sqlstate, sqlerrm));
       end;
+
+      -- Supabase guards storage.objects with a trigger that rejects every direct
+      -- SQL delete unless storage.allow_delete_query is 'true', which is what the
+      -- Storage API sets before it deletes. Setting it here lets the delete reach
+      -- the RLS policy under test instead of being stopped by the guard.
+      --
+      -- RLS never raises on a DELETE: rows the policy hides are silently skipped.
+      -- So only a row count is evidence about the policy. Any error means
+      -- something else stopped the delete, and proves nothing about RLS.
+      perform set_config('storage.allow_delete_query', 'true', true);
 
       chk := 'B cannot delete an attachment owned by A';
       begin
@@ -439,17 +458,36 @@ begin
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
           'result', case when cnt = 0 then 'PASS' else 'FAIL' end,
           'detail', format('rows deleted: %s, expected 0', cnt));
-      exception
-        when insufficient_privilege then
-          i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
-            'result', 'PASS', 'detail', 'rejected');
-        when others then
-          i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
-            'result', case when sqlerrm ilike '%direct deletion%' then 'SKIP' else 'ERROR' end,
-            'detail', case when sqlerrm ilike '%direct deletion%'
-                           then 'Supabase blocks direct SQL deletes on storage.objects, so this policy can only be exercised through the Storage API'
-                           else format('unexpected %s: %s', sqlstate, sqlerrm) end);
+      exception when others then
+        i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+          'result', case when sqlerrm ilike '%direct deletion%' then 'SKIP' else 'ERROR' end,
+          'detail', case when sqlerrm ilike '%direct deletion%'
+                         then 'Supabase blocked the direct delete before RLS was reached, so the delete policy was not exercised'
+                         else format('stopped by something other than RLS (%s: %s)', sqlstate, sqlerrm) end);
       end;
+
+      -- The positive half. Without it, a policy that blocked every delete - so
+      -- no one could ever remove an attachment - would pass the check above.
+      chk := 'B can delete their own attachment';
+      if b_uploaded_own then
+        begin
+          delete from storage.objects
+          where bucket_id = 'prompt_attachments' and name = user_b::text || '/rls-test.png';
+          get diagnostics cnt = row_count;
+          i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+            'result', case when cnt = 1 then 'PASS' else 'FAIL' end,
+            'detail', format('rows deleted: %s, expected 1', cnt));
+        exception when others then
+          i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+            'result', case when sqlerrm ilike '%direct deletion%' then 'SKIP' else 'FAIL' end,
+            'detail', case when sqlerrm ilike '%direct deletion%'
+                           then 'Supabase blocked the direct delete before RLS was reached, so the delete policy was not exercised'
+                           else format('%s: %s', sqlstate, sqlerrm) end);
+        end;
+      else
+        i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+          'result', 'SKIP', 'detail', 'depends on "B can upload into their own folder", which did not pass');
+      end if;
 
     else
       foreach skip_name in array array[
@@ -457,7 +495,8 @@ begin
         'B can read the attachment on a prompt shared with them',
         'B cannot upload into the folder of A',
         'B can upload into their own folder',
-        'B cannot delete an attachment owned by A'
+        'B cannot delete an attachment owned by A',
+        'B can delete their own attachment'
       ] loop
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', skip_name,
           'result', 'SKIP', 'detail', storage_skip_reason);
@@ -478,7 +517,8 @@ begin
     exception
       when insufficient_privilege then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
-          'result', 'PASS', 'detail', 'rejected by RLS');
+          'result', case when sqlerrm ilike '%row-level security%' then 'PASS' else 'ERROR' end,
+          'detail', sqlerrm);
       when others then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
           'result', 'ERROR', 'detail', format('unexpected %s: %s', sqlstate, sqlerrm));
@@ -499,7 +539,8 @@ begin
     exception
       when insufficient_privilege then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
-          'result', 'PASS', 'detail', 'rejected by RLS');
+          'result', case when sqlerrm ilike '%row-level security%' then 'PASS' else 'ERROR' end,
+          'detail', sqlerrm);
       when others then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
           'result', 'ERROR', 'detail', format('unexpected %s: %s', sqlstate, sqlerrm));
@@ -514,7 +555,8 @@ begin
     exception
       when insufficient_privilege then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
-          'result', 'PASS', 'detail', 'rejected by RLS');
+          'result', case when sqlerrm ilike '%row-level security%' then 'PASS' else 'ERROR' end,
+          'detail', sqlerrm);
       when others then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
           'result', 'ERROR', 'detail', format('unexpected %s: %s', sqlstate, sqlerrm));
@@ -662,7 +704,8 @@ begin
     exception
       when insufficient_privilege then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
-          'result', 'PASS', 'detail', 'rejected by RLS');
+          'result', case when sqlerrm ilike '%row-level security%' then 'PASS' else 'ERROR' end,
+          'detail', sqlerrm);
       when others then
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
           'result', 'ERROR', 'detail', format('unexpected %s: %s', sqlstate, sqlerrm));
