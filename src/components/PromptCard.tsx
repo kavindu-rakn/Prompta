@@ -98,6 +98,14 @@ export default function PromptCard({ prompt, onDelete, onSend, onEdit, isInbox, 
 
   const isImage = prompt.attachment_path && prompt.attachment_name?.match(/\.(jpeg|jpg|gif|png|webp)$/i);
 
+  const promptBody = (
+    <div className="prompt-body">
+      <div style={{ direction: "ltr", height: "100%" }}>
+        {prompt.content}
+      </div>
+    </div>
+  );
+
   const cardContent = (isModal: boolean) => (
     <div className={`prompt-card ${isModal ? 'prompt-card-full' : 'prompt-card-collapsed'}`} onClick={!isModal ? () => setIsExpanded(true) : undefined} style={!isModal ? { marginBottom: 0 } : {}}>
       <div className="prompt-header" style={{ backgroundColor: isInbox ? "var(--text-color)" : "var(--subtle-gray)", color: isInbox ? "var(--bg-color)" : "inherit", padding: "1rem 1.5rem" }}>
@@ -106,31 +114,39 @@ export default function PromptCard({ prompt, onDelete, onSend, onEdit, isInbox, 
           <span style={{ fontSize: "0.8rem", opacity: 0.8, marginRight: "1rem" }}>FROM: {senderEmail}</span>
         )}
       </div>
-      <div className="prompt-body">
-        <div style={{ direction: "ltr", height: "100%" }}>
-          {prompt.content}
-        </div>
-      </div>
-      
-      {isModal && prompt.attachment_path && (
-        <div style={{ padding: "0 1.5rem 1.5rem 1.5rem", borderTop: "2px solid var(--border-color)", paddingTop: "1.5rem" }}>
-          <p style={{ marginBottom: "1rem", textTransform: "uppercase", letterSpacing: "1px" }}>
-            <strong>[ATTACHMENT]:</strong>{" "}
-            {attachmentError ? (
-              <span style={{ opacity: 0.7 }}>UNAVAILABLE</span>
-            ) : signedUrl ? (
-              <a href={signedUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-color)", textDecoration: "underline", textUnderlineOffset: "4px" }}>{prompt.attachment_name || "DOWNLOAD"}</a>
-            ) : (
-              <span style={{ opacity: 0.7 }}>SIGNING LINK...</span>
-            )}
-          </p>
-          {isImage && signedUrl && !attachmentError && (
-            <div style={{ marginTop: "1rem", maxWidth: "100%", border: "2px solid var(--border-color)", padding: "0" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={signedUrl} alt="Attachment Preview" onError={() => prompt.attachment_path && setAttachmentLink({ path: prompt.attachment_path, url: null })} style={{ width: "100%", height: "auto", display: "block" }} />
+      {isModal ? (
+        // Text and attachment scroll as one region, so a tall image can neither
+        // crush the prompt text nor push the actions out of the card.
+        <div className="prompt-scroll">
+          {promptBody}
+
+          {prompt.attachment_path && (
+            <div style={{ padding: "0 1.5rem 1.5rem 1.5rem", borderTop: "2px solid var(--border-color)", paddingTop: "1.5rem" }}>
+              <p style={{ marginBottom: "1rem", textTransform: "uppercase", letterSpacing: "1px" }}>
+                <strong>[ATTACHMENT]:</strong>{" "}
+                {attachmentError ? (
+                  <span style={{ opacity: 0.7 }}>UNAVAILABLE</span>
+                ) : signedUrl ? (
+                  <a href={signedUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-color)", textDecoration: "underline", textUnderlineOffset: "4px" }}>{prompt.attachment_name || "DOWNLOAD"}</a>
+                ) : (
+                  <span style={{ opacity: 0.7 }}>SIGNING LINK...</span>
+                )}
+              </p>
+              {isImage && signedUrl && !attachmentError && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={signedUrl}
+                  alt="Attachment Preview"
+                  className="prompt-attachment-preview"
+                  onError={() => prompt.attachment_path && setAttachmentLink({ path: prompt.attachment_path, url: null })}
+                  style={{ marginTop: "1rem" }}
+                />
+              )}
             </div>
           )}
         </div>
+      ) : (
+        promptBody
       )}
 
       {isModal && (

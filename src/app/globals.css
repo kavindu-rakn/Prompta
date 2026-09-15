@@ -357,15 +357,36 @@ hr {
   flex-direction: column;
 }
 
-.prompt-card-full .prompt-body {
-  overflow-y: auto;
-  flex: 1;
-  direction: rtl; /* Move inner modal scrollbar to the left */
-  padding-left: 1.5rem; /* Add padding to the left where the scrollbar is */
+.prompt-card-full .prompt-header,
+.prompt-card-full .prompt-actions {
+  flex-shrink: 0;
 }
 
-.prompt-card-full .prompt-body > * {
+/* The prompt text and its attachment scroll together as one region between the
+   fixed header and action bar. They used to be separate flex items: the
+   attachment had no height limit, so a tall image crushed the text area to zero
+   and pushed the actions out past the bottom of the card. */
+.prompt-card-full .prompt-scroll {
+  flex: 1;
+  min-height: 0; /* Let this flex item shrink below its content and scroll instead */
+  overflow-y: auto;
+  direction: rtl; /* Move inner modal scrollbar to the left */
+}
+
+.prompt-card-full .prompt-scroll > * {
   direction: ltr; /* Reset inner text direction */
+}
+
+/* A preview, not the full image: capped so a tall image cannot take over the
+   card. The full-size file is one click away through the attachment link. */
+.prompt-attachment-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+  width: auto;
+  height: auto;
+  margin-inline: auto;
+  border: 2px solid var(--border-color);
 }
 
 /* Horizontal Folder Tabs */
