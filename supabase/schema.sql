@@ -16,6 +16,9 @@
 -- the browser with the publishable (anon) key, which is public by design.
 -- Postgres Row Level Security is therefore the ONLY thing protecting user
 -- data. Every policy below is load-bearing. Read before you edit.
+--
+-- After ANY change to this file, run supabase/tests/rls.sql in the SQL Editor
+-- to confirm the policies still hold. It changes no data.
 -- =============================================================================
 
 
