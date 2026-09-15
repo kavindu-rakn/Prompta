@@ -281,6 +281,64 @@ button:disabled {
   transform: translate(-6px, -6px);
 }
 
+/* Search box. The focus lift lives on the wrapper, not the input, so the icon
+   and clear button move with the field instead of being left behind. */
+.search-field {
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-field:focus-within {
+  box-shadow: 6px 6px 0 0 var(--border-color);
+  transform: translate(-6px, -6px);
+}
+
+.search-field input {
+  width: 100%;
+  background-color: var(--subtle-gray);
+  border: 2px solid var(--border-color);
+  color: var(--text-color);
+  font: inherit;
+  font-size: 1rem; /* 16px minimum stops iOS zooming in on focus */
+  padding: 1rem 3.5rem 1rem 3rem;
+  outline: none;
+}
+
+.search-field input:focus {
+  background-color: var(--bg-color);
+}
+
+/* The component draws its own clear button, which also works in Firefox. */
+.search-field input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-field .search-icon {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 1rem;
+  margin: auto 0;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.search-field .search-clear {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  border: none;
+  /* Transparent at rest so it does not show as a block inside the field. The
+     global button:hover rule is more specific and still inverts it on hover. */
+  background-color: transparent;
+  color: inherit;
+}
+
 /* Custom file input styling */
 input[type="file"] {
   background-color: var(--subtle-gray);

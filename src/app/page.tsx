@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useDeferredValue, useEffect, useMemo, useState, Suspense } from "react";
 import PromptCard, { Prompt } from "@/components/PromptCard";
 import PromptForm, { type PromptDraft } from "@/components/PromptForm";
 import MagneticButton from "@/components/MagneticButton";
@@ -10,6 +10,8 @@ import { logError } from "@/lib/errorLog";
 import LegalLinks from "@/components/LegalLinks";
 import { useToast } from "@/components/ToastProvider";
 import LandingHero from "@/components/LandingHero";
+import SearchBar from "@/components/SearchBar";
+import { buildHaystack, matchesTerms, parseQuery } from "@/lib/searchPrompts";
 import { useSearchParams } from "next/navigation";
 
 import { X } from "lucide-react";
@@ -41,6 +43,31 @@ function DashboardContent() {
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [entryToDelete, setEntryToDelete] = useState<{ id: string, type: "prompt" | "inbox" } | null>(null);
   const [loadError, setLoadError] = useState(false);
+
+  // Search. Each view keeps its own query, so a vault search is never silently
+  // applied to the inbox when switching between them.
+  const viewKey = currentView === "inbox" ? "inbox" : "vault";
+  const [queries, setQueries] = useState({ vault: "", inbox: "" });
+  const query = queries[viewKey];
+  const setQuery = (value: string) => setQueries((current) => ({ ...current, [viewKey]: value }));
+
+  // The input updates immediately; filtering catches up when React has time,
+  // so typing stays responsive even in a large vault.
+  const deferredQuery = useDeferredValue(query);
+  const searchTerms = useMemo(() => parseQuery(deferredQuery), [deferredQuery]);
+
+  // Searchable text is built once per load, not once per keystroke.
+  const promptHaystacks = useMemo(
+    () => new Map(prompts.map((p) => [p.id, buildHaystack([p.title, p.content, p.attachment_name])])),
+    [prompts]
+  );
+  const inboxHaystacks = useMemo(
+    () => new Map(inbox.map((s) => [
+      s.id,
+      buildHaystack([s.prompts?.title, s.prompts?.content, s.prompts?.attachment_name, s.sender_email]),
+    ])),
+    [inbox]
+  );
 
   // Deliberately does not flip `loading` on at the top: doing so synchronously
   // from the mount effect below causes a cascading render. `loading` already
@@ -338,9 +365,35 @@ function DashboardContent() {
     );
   }
 
-  const filteredPrompts = activeFolderId 
+  const searching = searchTerms.length > 0;
+  const matchesSearch = (p: Prompt) =>
+    !searching || matchesTerms(promptHaystacks.get(p.id) ?? "", searchTerms);
+
+  const folderPrompts = activeFolderId
     ? prompts.filter(p => p.folder_id === activeFolderId)
     : prompts;
+  const filteredPrompts = folderPrompts.filter(matchesSearch);
+
+  // Matches the active folder is hiding. Surfaced so a search inside one folder
+  // never silently misses a prompt that was filed somewhere else.
+  const matchesInOtherFolders = activeFolderId && searching
+    ? prompts.filter(matchesSearch).length - filteredPrompts.length
+    : 0;
+
+  const receivedShares = inbox.filter((s) => s.prompts);
+  const visibleShares = receivedShares.filter(
+    (s) => !searching || matchesTerms(inboxHaystacks.get(s.id) ?? "", searchTerms)
+  );
+
+  const noMatchesMessage = (
+    <div style={{ marginBottom: "2rem" }}>
+      <p style={{ opacity: 0.7, fontSize: "1.2rem", fontWeight: "bold", marginBottom: "1rem", overflowWrap: "anywhere" }}>
+        NOTHING MATCHES &ldquo;{deferredQuery.trim()}&rdquo;
+        {currentView !== "inbox" && activeFolderId ? " IN THIS DIRECTORY" : ""}.
+      </p>
+      <button type="button" onClick={() => setQuery("")}>[ CLEAR SEARCH ]</button>
+    </div>
+  );
 
   return (
     <main className="container" style={{ maxWidth: "1200px", padding: "2rem" }}>
@@ -352,20 +405,32 @@ function DashboardContent() {
             <p>SCANNING COMMS...</p>
           ) : loadError ? (
             <p style={{ opacity: 0.9, fontSize: "1.2rem", fontWeight: "bold", color: "#ff3333" }}>DATA LINK FAILURE. COULD NOT REACH THE SERVER.</p>
-          ) : inbox.length === 0 ? (
+          ) : receivedShares.length === 0 ? (
             <p style={{ opacity: 0.7, fontSize: "1.2rem", fontWeight: "bold" }}>NO INCOMING TRANSMISSIONS.</p>
           ) : (
-            <div className="prompt-grid">
-              {inbox.map((share) => share.prompts && (
-                <PromptCard 
-                  key={share.id} 
-                  prompt={share.prompts} 
-                  isInbox={true} 
-                  senderEmail={share.sender_email} 
-                  onDelete={() => handleDeleteInboxClick(share.id)}
-                />
-              ))}
-            </div>
+            <>
+              <SearchBar
+                value={query}
+                onChange={setQuery}
+                label="Search your inbox"
+                placeholder="TITLE, CONTENT, FILE OR SENDER..."
+                matchCount={visibleShares.length}
+                totalCount={receivedShares.length}
+              />
+              {visibleShares.length === 0 ? noMatchesMessage : (
+                <div className="prompt-grid">
+                  {visibleShares.map((share) => (
+                    <PromptCard
+                      key={share.id}
+                      prompt={share.prompts}
+                      isInbox={true}
+                      senderEmail={share.sender_email}
+                      onDelete={() => handleDeleteInboxClick(share.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
       ) : (
@@ -421,20 +486,42 @@ function DashboardContent() {
             <p>FETCHING DATA...</p>
           ) : loadError ? (
             <p style={{ opacity: 0.9, fontSize: "1.2rem", fontWeight: "bold", color: "#ff3333" }}>DATA LINK FAILURE. COULD NOT REACH THE SERVER.</p>
-          ) : filteredPrompts.length === 0 ? (
+          ) : prompts.length === 0 ? (
             <p style={{ opacity: 0.7, fontSize: "1.2rem", fontWeight: "bold" }}>NO ENTRIES FOUND IN THIS DIRECTORY.</p>
           ) : (
-            <div className="prompt-grid">
-              {filteredPrompts.map((prompt) => (
-                <PromptCard
-                  key={prompt.id}
-                  prompt={prompt}
-                  onDelete={handleDeletePromptClick}
-                  onSend={handleSendPromptClick}
-                  onEdit={(p) => setEditor({ mode: "edit", prompt: p })}
-                />
-              ))}
-            </div>
+            <>
+              <SearchBar
+                value={query}
+                onChange={setQuery}
+                label={activeFolderId ? "Search this folder" : "Search your vault"}
+                placeholder="TITLE, CONTENT OR FILE NAME..."
+                matchCount={filteredPrompts.length}
+                totalCount={folderPrompts.length}
+              />
+
+              {matchesInOtherFolders > 0 && (
+                <p style={{ marginBottom: "2rem", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "1rem", fontWeight: "bold", letterSpacing: "1px" }}>
+                  {matchesInOtherFolders} MORE {matchesInOtherFolders === 1 ? "MATCH" : "MATCHES"} IN OTHER FOLDERS.
+                  <button type="button" onClick={() => setActiveFolderId(null)}>[ SEARCH ALL FOLDERS ]</button>
+                </p>
+              )}
+
+              {folderPrompts.length === 0 && !searching ? (
+                <p style={{ opacity: 0.7, fontSize: "1.2rem", fontWeight: "bold" }}>NO ENTRIES FOUND IN THIS DIRECTORY.</p>
+              ) : filteredPrompts.length === 0 ? noMatchesMessage : (
+                <div className="prompt-grid">
+                  {filteredPrompts.map((prompt) => (
+                    <PromptCard
+                      key={prompt.id}
+                      prompt={prompt}
+                      onDelete={handleDeletePromptClick}
+                      onSend={handleSendPromptClick}
+                      onEdit={(p) => setEditor({ mode: "edit", prompt: p })}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
       )}
