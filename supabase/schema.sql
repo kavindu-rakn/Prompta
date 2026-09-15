@@ -52,7 +52,9 @@ create table if not exists public.prompt_shares (
 -- Columns added by later phases, for projects created before them.
 alter table public.prompts add column if not exists user_id uuid references auth.users(id) on delete cascade default auth.uid();
 alter table public.prompts add column if not exists attachment_name text;
-alter table public.prompts add column if not exists folder_id uuid references public.folders(id) on delete set null;
+-- folder_id's foreign key is defined in section 11, where it also enforces that
+-- the folder belongs to the same user as the prompt.
+alter table public.prompts add column if not exists folder_id uuid;
 
 
 -- -----------------------------------------------------------------------------
@@ -503,3 +505,64 @@ drop trigger if exists trg_error_log_rate_limit on public.client_errors;
 create trigger trg_error_log_rate_limit
 before insert on public.client_errors
 for each row execute function public.enforce_error_log_rate_limit();
+
+
+-- -----------------------------------------------------------------------------
+-- 11. FOLDER OWNERSHIP
+-- -----------------------------------------------------------------------------
+-- A prompt may only be filed under a folder owned by the same user.
+--
+-- The original foreign key only checked that the folder EXISTED. Foreign key
+-- checks do not apply RLS, so any user could file their own prompt under
+-- another user's folder id. Nothing became readable, but it created
+-- cross-account references: deleting your own folder silently rewrote other
+-- people's prompts, and whether the write succeeded revealed whether a given
+-- folder id existed at all.
+--
+-- A composite key enforces this in the schema itself rather than in a policy,
+-- so it holds even for service-role writes that bypass RLS. Because
+-- (folder_id, user_id) can only ever match a folder the prompt's own owner
+-- holds, a foreign folder id now fails exactly like a non-existent one.
+--
+-- ON DELETE SET NULL (folder_id) requires Postgres 15+. The column list is
+-- load-bearing: a bare SET NULL on a composite key would null user_id as well,
+-- orphaning every prompt in a deleted folder.
+
+-- Drop every existing prompts -> folders foreign key, whatever it is named, so
+-- this converges from any earlier version of the schema.
+do $$
+declare
+  fk record;
+begin
+  for fk in
+    select conname
+    from pg_constraint
+    where conrelid  = 'public.prompts'::regclass
+      and confrelid = 'public.folders'::regclass
+      and contype   = 'f'
+  loop
+    execute format('alter table public.prompts drop constraint %I', fk.conname);
+  end loop;
+end $$;
+
+-- A foreign key must reference columns covered by a unique constraint. id is
+-- already unique on its own; this constraint exists only to be referenced.
+alter table public.folders drop constraint if exists folders_id_user_id_key;
+alter table public.folders add constraint folders_id_user_id_key unique (id, user_id);
+
+-- Unfile any prompt currently sitting in another user's folder, or the
+-- constraint below cannot be added. This clears folder_id only; no prompt is
+-- deleted. Prompts with no owner are skipped: the key does not apply to them.
+update public.prompts p
+set folder_id = null
+where p.folder_id is not null
+  and p.user_id is not null
+  and not exists (
+    select 1 from public.folders f
+    where f.id = p.folder_id and f.user_id = p.user_id
+  );
+
+alter table public.prompts add constraint prompts_folder_owner_fkey
+  foreign key (folder_id, user_id)
+  references public.folders (id, user_id)
+  on delete set null (folder_id);

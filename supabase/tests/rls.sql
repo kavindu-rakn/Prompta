@@ -59,6 +59,7 @@ declare
   prompt_a_shared  uuid := gen_random_uuid();  -- owned by A, shared with B and C
   prompt_b_own     uuid := gen_random_uuid();  -- owned by B
   folder_a         uuid := gen_random_uuid();  -- owned by A
+  folder_b         uuid := gen_random_uuid();  -- owned by B
   share_ab         uuid := gen_random_uuid();  -- A sends prompt_a_shared to B
   share_ac         uuid := gen_random_uuid();  -- A sends prompt_a_shared to C
 
@@ -76,10 +77,14 @@ declare
   size_limit bigint;
   err_constraint text;
   skip_name  text;
+  seen_folder  uuid;
+  seen_owner   uuid;
+  prompt_found boolean;
 
   storage_ready       boolean := false;
   storage_skip_reason text := 'not attempted';
   b_shared_own        boolean := false;
+  b_filed_own         boolean := false;
   b_logged_error      boolean := false;
 begin
   -- ===========================================================================
@@ -98,7 +103,8 @@ begin
 
     phase := 'setup: creating prompts, folder and shares';
     insert into public.folders (id, user_id, name)
-    values (folder_a, user_a, 'rls test folder');
+    values (folder_a, user_a, 'rls test folder a'),
+           (folder_b, user_b, 'rls test folder b');
 
     insert into public.prompts (id, user_id, title, content, attachment_path, attachment_name)
     values (prompt_a_private, user_a, 'rls test: A private', 'private', file_a_private, 'private.png'),
@@ -294,6 +300,80 @@ begin
         i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
           'result', 'ERROR', 'detail', format('unexpected %s: %s', sqlstate, sqlerrm));
     end;
+
+    -- Foreign key checks do not apply RLS, so these are enforced by the
+    -- composite key prompts_folder_owner_fkey rather than by any policy.
+
+    chk := 'B cannot file their prompt under a folder owned by A';
+    begin
+      update public.prompts set folder_id = folder_a where id = prompt_b_own;
+      get diagnostics cnt = row_count;
+      -- Zero rows would mean the update never reached the key, which proves
+      -- nothing about it, so only a changed row counts as a failure.
+      i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+        'result', case when cnt = 0 then 'ERROR' else 'FAIL' end,
+        'detail', case when cnt = 0 then 'update matched no rows, so the check proves nothing'
+                       else 'update accepted: prompts can reference folders in other accounts' end);
+    exception
+      when foreign_key_violation then
+        get stacked diagnostics err_constraint = constraint_name;
+        i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+          'result', case when err_constraint = 'prompts_folder_owner_fkey' then 'PASS' else 'ERROR' end,
+          'detail', format('rejected by %s', err_constraint));
+      when others then
+        i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+          'result', 'ERROR', 'detail', format('unexpected %s: %s', sqlstate, sqlerrm));
+    end;
+
+    chk := 'B cannot create a prompt inside a folder owned by A';
+    begin
+      insert into public.prompts (user_id, folder_id, title, content)
+      values (user_b, folder_a, 'rls test: foreign folder', 'x');
+      i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+        'result', 'FAIL', 'detail', 'insert accepted: prompts can be created inside folders of other accounts');
+    exception
+      when foreign_key_violation then
+        get stacked diagnostics err_constraint = constraint_name;
+        i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+          'result', case when err_constraint = 'prompts_folder_owner_fkey' then 'PASS' else 'ERROR' end,
+          'detail', format('rejected by %s', err_constraint));
+      when others then
+        i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+          'result', 'ERROR', 'detail', format('unexpected %s: %s', sqlstate, sqlerrm));
+    end;
+
+    chk := 'B can file their prompt under their own folder';
+    begin
+      update public.prompts set folder_id = folder_b where id = prompt_b_own;
+      get diagnostics cnt = row_count;
+      b_filed_own := (cnt = 1);
+      i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+        'result', case when cnt = 1 then 'PASS' else 'FAIL' end,
+        'detail', format('rows changed: %s, expected 1', cnt));
+    exception when others then
+      i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+        'result', 'FAIL', 'detail', format('%s: %s', sqlstate, sqlerrm));
+    end;
+
+    -- Guards the composite key's delete action. A bare ON DELETE SET NULL on a
+    -- two-column key would null user_id too, silently orphaning the prompt.
+    chk := 'Deleting a folder unfiles its prompts without orphaning them';
+    if b_filed_own then
+      delete from public.folders where id = folder_b;
+      get diagnostics cnt = row_count;
+      select folder_id, user_id into seen_folder, seen_owner
+      from public.prompts where id = prompt_b_own;
+      prompt_found := found;
+      i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+        'result', case when cnt = 1 and prompt_found and seen_folder is null and seen_owner = user_b
+                       then 'PASS' else 'FAIL' end,
+        'detail', format('folders deleted: %s, prompt still exists: %s, folder_id: %s, owner kept: %s (expected 1, true, null, true)',
+                         cnt, prompt_found, coalesce(seen_folder::text, 'null'),
+                         coalesce(seen_owner = user_b, false)));
+    else
+      i := i + 1; results := results || jsonb_build_object('n', i, 'area', area_label, 'check', chk,
+        'result', 'SKIP', 'detail', 'depends on "B can file their prompt under their own folder", which did not pass');
+    end if;
 
     -- ---- Attachments, as B --------------------------------------------------
 
