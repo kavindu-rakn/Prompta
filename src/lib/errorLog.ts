@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { describeError } from "./describeError";
 
 // Field caps mirror the CHECK constraint on public.client_errors. Clipping here
 // means an oversized stack trace is truncated rather than rejected outright.
@@ -28,13 +29,16 @@ const clip = (value: string | undefined | null, max: number): string | null =>
  * cause one.
  */
 export async function logError(error: unknown, source?: string): Promise<void> {
-  const message =
-    error instanceof Error ? error.message : String(error ?? "unknown error");
-  const stack = error instanceof Error ? error.stack : undefined;
+  const { message, stack } = describeError(error);
 
-  console.error(`[${source ?? "app"}]`, error);
+  // The message goes in the first argument so it stays readable wherever the
+  // error object itself is not expanded, such as the Next.js dev overlay.
+  console.error(`[${source ?? "app"}] ${message}`, error);
 
   if (typeof window === "undefined") return;
+  // A report cannot be delivered while offline, so do not spend the session
+  // budget on it.
+  if (!navigator.onLine) return;
   if (sentThisSession >= SESSION_CAP) return;
   sentThisSession++;
 
